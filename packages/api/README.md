@@ -1,6 +1,6 @@
 # api
 
-Packages 2 and 3 of "Our Next 50".
+Packages 2, 3, and 4 of "Our Next 50".
 
 **Package 2** built authentication, session handling, consent capture, and
 server-side row-level authorization — entirely about "who is this request
@@ -11,6 +11,12 @@ experiment features.
 onboarding flow (PRD Section 8.2), replacing Package 2's placeholder
 `participantProfiles` CRUD-by-id routes (that package's README explicitly
 flagged them as minimal wiring for "a future package" to properly own).
+
+**Package 4** added inbox ingestion for the text and form channels (INB-01).
+Voice is deliberately deferred to Package 6; extraction into Observations
+is Package 5's job. This package's responsibility ends at "the raw
+submission is durably, correctly, and identically-shaped stored" — see
+below.
 
 ## Framework choice
 
@@ -118,6 +124,10 @@ That's what "structurally impossible," not just disciplined, means here.
 `createScopedDataAccess` in `scopedDataAccess.ts`
 (`observations: createScopedTableAccess(observations, userId)`), then use
 `req.data.observations.*` in routes. Do not query that table anywhere else.
+`inboxEvents` (Package 4) followed exactly this pattern — no new access
+method was added, including for `GET /api/inbox`'s pagination, which just
+sorts/slices the result of the existing `list()` in the route handler
+rather than inventing a paginated query method.
 
 ### ACC-03 — consent gate
 
@@ -176,6 +186,33 @@ package.
   version is left exactly as it was and stays queryable by its id or via
   `/versions`.
 
+## Inbox ingestion (`src/routes/inbox.ts`) — INB-01
+
+Text and form submissions (PRD Section 13's "one-minute structured
+check-in" for the latter) both create exactly one `InboxEvent` row each,
+via the identical `req.data.inboxEvents.create()` call — differing **only**
+in `channel` and what's inside `payload` (`src/inbox/types.ts`:
+`{ text: string }` for text, `{ weight?, hungerLevel?, note? }` for form,
+each field individually optional but the form as a whole requiring at
+least one). Every event is created with `status: "received"` and left
+alone — this package does not extract Observations from it; that's
+Package 5's job. Voice (Package 6) is the reason `packages/db`'s
+`inboxEvents.payload`/`rawPayloadRef` split exists at all: text/form
+content is small enough to live inline in `payload`, while a future
+blob-based channel would populate `rawPayloadRef` instead — but the
+InboxEvent row's top-level shape stays identical regardless.
+
+- `POST /api/inbox/text` — free-form text. Rejects an empty/missing
+  string.
+- `POST /api/inbox/form` — the structured check-in. Rejects a submission
+  where none of `weight`/`hungerLevel`/`note` are present — the form
+  exists for speed, not completeness, so there's no reason to accept
+  nothing at all.
+- `GET /api/inbox` — the caller's own events, most recent first, paginated
+  via `?limit=&offset=` (no new query capability — see the ACC-02 section
+  above). This is the first "can I see what I submitted" surface; a real
+  Timeline view is a later package.
+
 ## Test suites
 
 **`test/isolation.test.ts`** — general auth-pipeline proof: an
@@ -202,9 +239,26 @@ the "prove it again" for this route surface):
 7. User B's `PATCH` can only ever affect user B's own current profile — A's
    version/id are confirmed unchanged afterward.
 
+**`test/inbox.test.ts`** — INB-01's specific requirements, plus a
+from-scratch isolation check for these routes (same reasoning as above —
+Package 2/3's coverage doesn't extend to routes they never exercised):
+
+1. Text and form submissions each create the right channel/payload.
+2. **Structural symmetry**: a text event and a form event are asserted to
+   have the exact same top-level field set (`Object.keys(...).sort()`
+   equality) — not just that each route works in isolation. This is the
+   test that would actually catch text and form quietly diverging into
+   different shapes.
+3. Empty/invalid submissions are rejected on both routes (missing text,
+   an entirely empty form, an out-of-range `hungerLevel`).
+4. `GET /api/inbox` returns only the caller's own events (proven by giving
+   user B exactly one event and confirming user A's much larger history
+   never appears in B's list, and vice versa), most-recent-first, with
+   working `limit`/`offset` pagination.
+
 **How sessions are established in tests, and why:** a real browser-driven
 Replit OIDC login can't be automated in CI — there's no way to script a
-human clicking "Allow" on replit.com. So both test files use a test-only
+human clicking "Allow" on replit.com. So every test file uses a test-only
 route, `POST /api/_test/login-as` (`routes/testAuth.ts`), which calls
 Passport's `req.login()` directly — the exact same call the real OIDC
 callback makes — to establish a genuine session. That route is **only
