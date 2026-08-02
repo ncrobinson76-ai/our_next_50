@@ -7,20 +7,42 @@ syntheses, scored manually against `rubric.md`.
 
 ## What's here
 
-- `types.ts` — shared data model (`BaselineProfile`, `Observation`,
-  `WeeklyReflection`, `PriorExperiment`, `EvidencePacket`, `SynthesisOutput`,
-  `SafetyCheckResult`), written to be reusable in later packages.
+- `types.ts` — re-exports the shared data model (`BaselineProfile`,
+  `Observation`, `WeeklyReflection`, `PriorExperiment`, `EvidencePacket`,
+  `SynthesisOutput`, `SafetyCheckResult`) from `packages/synthesis-core`
+  (moved there in Package 9), plus `ScenarioInput`, which stays local since
+  it's specific to this package's fictional fixtures.
 - `scenarios/` — 16 fictional scenario JSON files covering the cases in the
   package spec (modest progress, plateaus, missed logging, ambiguous data,
   safety-flagged cases, etc).
-- `safetyCheck.ts` — rule-based, keyword/threshold safety interrupt that runs
-  before synthesis.
-- `synthesisEngine.ts` — builds an `EvidencePacket` from a scenario, runs the
-  safety check, and (if not flagged) calls the Anthropic API for a structured
-  synthesis.
+- `safetyCheck.ts` — re-exports `packages/synthesis-core`'s rule-based,
+  keyword/threshold safety interrupt (moved there in Package 9; the same
+  check packages/api's weekly-level safety gate now shares).
+- `synthesisEngine.ts` — `buildEvidencePacket(scenario)`, specific to this
+  package's fictional fixtures, plus `synthesizeWeek(scenario)`, a thin
+  wrapper that builds the packet and hands it to
+  `packages/synthesis-core`'s `synthesizeFromPacket()` (the system prompt,
+  the Anthropic call, and the safety-check-before-synthesis logic all live
+  there now — see that package's README for why and what moved).
 - `runEval.ts` — runs every scenario in `scenarios/` through the engine and
   writes one readable `.md` file per scenario to `output/`.
 - `rubric.md` — the 9-dimension manual scoring checklist.
+
+### Package 9: the engine moved to packages/synthesis-core
+
+This package's `synthesisEngine.ts` and `safetyCheck.ts` used to contain the
+full implementation. Package 9 needed the exact same, rubric-validated
+system prompt and safety-check logic to run against *real* user data in
+`packages/api` — duplicating the file was explicitly the fallback, not the
+goal, so both packages now depend on `packages/synthesis-core` (a plain
+sibling-package relative import, same pattern as this package already used
+for nothing — see `packages/api/src/db.ts` for the precedent with
+`packages/db`). **The system prompt text itself did not change** — it's
+byte-identical to what was rubric-scored across all 16 scenarios here. Only
+the file it lives in changed. Running `npm run eval` after the refactor
+reproduces the exact same safety-pathway output for the deterministic
+scenarios (verified byte-for-byte against the pre-refactor output for
+`urgent-symptom`) and well-formed synthesis output for the LLM-driven ones.
 
 ## Setup
 

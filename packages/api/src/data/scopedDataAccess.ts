@@ -1,6 +1,17 @@
 import { and, eq, type InferInsertModel, type InferSelectModel } from "drizzle-orm";
 import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
-import { db, inboxEvents, observations, participantProfiles, safetyEvents, sourceArtifacts, transcripts } from "../db";
+import {
+  db,
+  inboxEvents,
+  observations,
+  participantProfiles,
+  programWeeks,
+  safetyEvents,
+  sourceArtifacts,
+  transcripts,
+  weeklyReviewInputObservations,
+  weeklyReviews,
+} from "../db";
 
 // ACC-02, the core pattern: every user-owned table (anything with a
 // userId column — observations, inboxEvents, participantProfiles, and
@@ -71,6 +82,44 @@ function createScopedTableAccess<T extends UserOwnedTable>(table: T, userId: str
   };
 }
 
+// weeklyReviewInputObservations is a many-to-many junction table (which
+// Observations fed a given WeeklyReview) with no userId column of its own,
+// so it can't go through createScopedTableAccess's UserOwnedTable
+// constraint. Every method here re-derives the scoping guarantee by joining
+// back to weeklyReviews.userId instead — a route handler still never gets a
+// path to this table that skips the userId check, it's just checked via a
+// join rather than a direct column, since this junction row has no owner of
+// its own except through the WeeklyReview it belongs to.
+export interface WeeklyReviewInputObservationsAccess {
+  createMany(weeklyReviewId: string, observationIds: string[]): Promise<void>;
+  listObservationIds(weeklyReviewId: string): Promise<string[]>;
+}
+
+function createWeeklyReviewInputObservationsAccess(userId: string): WeeklyReviewInputObservationsAccess {
+  return {
+    async createMany(weeklyReviewId, observationIds) {
+      if (observationIds.length === 0) return;
+      const [owned] = await db
+        .select({ id: weeklyReviews.id })
+        .from(weeklyReviews)
+        .where(and(eq(weeklyReviews.id, weeklyReviewId), eq(weeklyReviews.userId, userId)));
+      if (!owned) throw new Error("weeklyReviewId does not belong to this user");
+      await db
+        .insert(weeklyReviewInputObservations)
+        .values(observationIds.map((observationId) => ({ weeklyReviewId, observationId })));
+    },
+
+    async listObservationIds(weeklyReviewId) {
+      const rows = await db
+        .select({ observationId: weeklyReviewInputObservations.observationId })
+        .from(weeklyReviewInputObservations)
+        .innerJoin(weeklyReviews, eq(weeklyReviewInputObservations.weeklyReviewId, weeklyReviews.id))
+        .where(and(eq(weeklyReviewInputObservations.weeklyReviewId, weeklyReviewId), eq(weeklyReviews.userId, userId)));
+      return rows.map((row) => row.observationId);
+    },
+  };
+}
+
 export interface ScopedDataAccess {
   participantProfiles: ReturnType<typeof createScopedTableAccess<typeof participantProfiles>>;
   inboxEvents: ReturnType<typeof createScopedTableAccess<typeof inboxEvents>>;
@@ -78,6 +127,9 @@ export interface ScopedDataAccess {
   safetyEvents: ReturnType<typeof createScopedTableAccess<typeof safetyEvents>>;
   sourceArtifacts: ReturnType<typeof createScopedTableAccess<typeof sourceArtifacts>>;
   transcripts: ReturnType<typeof createScopedTableAccess<typeof transcripts>>;
+  programWeeks: ReturnType<typeof createScopedTableAccess<typeof programWeeks>>;
+  weeklyReviews: ReturnType<typeof createScopedTableAccess<typeof weeklyReviews>>;
+  weeklyReviewInputObservations: WeeklyReviewInputObservationsAccess;
 }
 
 export function createScopedDataAccess(userId: string): ScopedDataAccess {
@@ -88,5 +140,8 @@ export function createScopedDataAccess(userId: string): ScopedDataAccess {
     safetyEvents: createScopedTableAccess(safetyEvents, userId),
     sourceArtifacts: createScopedTableAccess(sourceArtifacts, userId),
     transcripts: createScopedTableAccess(transcripts, userId),
+    programWeeks: createScopedTableAccess(programWeeks, userId),
+    weeklyReviews: createScopedTableAccess(weeklyReviews, userId),
+    weeklyReviewInputObservations: createWeeklyReviewInputObservationsAccess(userId),
   };
 }

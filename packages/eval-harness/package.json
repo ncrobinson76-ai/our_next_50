@@ -9,7 +9,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.32.1",
     "dotenv": "^16.4.5"
   },
   "devDependencies": {

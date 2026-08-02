@@ -649,6 +649,118 @@ Every observation returned by either route above carries everything
   view of the same data), excluding superseded rows by default;
   `?includeSuperseded=true` includes them.
 
+## Weekly synthesis (`src/weeklyReview/`) — Package 9
+
+The first time real (not fictional) user data reaches an LLM-generated
+weekly review. Everything upstream of "I have an EvidencePacket" — the
+system prompt, the Anthropic call, response parsing, and the safety check
+that runs before either — now lives in `packages/synthesis-core`, shared
+unmodified with `packages/eval-harness`. See that package's README for the
+full story of the refactor; this section covers what's specific to this
+package: building a real `EvidencePacket` from Postgres data, the
+weekly-level safety gate, and persistence.
+
+### `programWeek.ts` — finding the current week
+
+A user's "program start date" is anchored to their **version-1**
+`ParticipantProfile`'s `startingWeightDate` — deliberately not the latest
+version's, so a later correction to that field can't retroactively shift
+which 7-day windows every past `ProgramWeek` belongs to. Per this
+package's spec, the window itself is a simple 7-day calendar block from
+that anchor date — no missed-week recovery logic (that's explicitly
+Package 10's job). `getOrCreateCurrentProgramWeek()` finds-or-creates the
+`ProgramWeek` row for whatever window contains today.
+
+### `evidencePacket.ts` — real data into a fixed shape
+
+This is the most involved mapping in the package: real Observations have 11
+polymorphic types and free-form `structuredDetails` (no fixed schema — see
+`src/inbox/extraction.ts`); the shared `EvidencePacket`/`Observation` shape
+was hand-authored in Package 0 against a much simpler fictional day-summary
+model. Two decisions worth calling out (both documented at length in the
+file itself):
+
+1. **Confirmed vs. proposed (PRD Section 8.4).** The shared `Observation`
+   type has no confidence field of its own, so the distinction is encoded
+   structurally instead: confirmed/corrected Observations populate
+   structured fields (`weight`, `sleep`, `meals`, `hunger`, `activity`,
+   `symptoms`, and — for `context_reflection` — the packet's top-level
+   `weeklyReflection`). A **proposed** Observation of any type never
+   populates a structured field; it's always folded into that day's
+   `freeTextNotes` as an explicitly hedged sentence ("An unconfirmed entry
+   suggests…"). Derived metrics (weight trend, average sleep/hunger) are
+   computed only from the structured fields, so they're confirmed-data-only
+   by construction. `test/weeklyReview.test.ts` asserts this directly
+   against `assembleEvidencePacket()` — no LLM involved, fully
+   deterministic.
+2. **Four types with no dedicated field** (`waist`, `energy`,
+   `experiment_completion`, `non_scale_win` — the shared `Observation` type
+   predates them). Confirmed rows of these types are surfaced as plain
+   factual sentences in `freeTextNotes` rather than dropped.
+3. **Superseded Observations are excluded entirely**, per the spec.
+4. **Medication context**: `onWeightManagementMedication: true` becomes a
+   single medication entry whose name states plainly that no drug name or
+   dosage was collected — PRD Section 8.2's own scope boundary, not a
+   placeholder for a missing feature.
+5. **Prior experiment is always `null`.** No `Experiment` entity is wired
+   into the API yet (Package 10's job) — passed through gracefully rather
+   than fabricated or omitted from the packet shape.
+
+### The weekly-level safety gate (`service.ts`)
+
+Runs `packages/synthesis-core`'s `runSafetyCheck()` against the assembled
+weekly packet **before** any call to the synthesis model. This is a
+genuinely different, additional check from `src/inbox/safetyScreen.ts`
+(Package 5/8): that one only ever sees one entry's text at a time; this one
+evaluates a whole week's aggregated evidence at once, including its own
+rapid-weight-change comparison (first-vs-last logged weight *within the
+week*, distinct from Package 8's newest-vs-most-recent-prior comparison at
+entry time). If flagged: a `SafetyEvent` is written per category (mapped
+from the shared check's hyphenated category names to the DB's underscored
+enum — `urgent-symptom` → `urgent_symptom`, etc.), the synthesis model is
+never called, and the route returns the pathway message instead of a
+review. `WEEKLY_SAFETY_GATE_VERSION` (`"package-9-weekly-safety-gate-v1"`)
+is stored on the `SafetyEvent` row and is a distinct version string from
+the per-entry screen's own, so a reviewer can tell which layer flagged a
+given entry.
+
+Unlike the per-entry screen, there's no single Observation or InboxEvent
+that "caused" a weekly flag — it's a property of the whole packet — so
+these `SafetyEvent` rows have no `sourceObservationId`/`sourceInboxEventId`.
+
+### Persistence and routes
+
+- `POST /api/program-weeks/current/generate-review` — the synchronous
+  trigger (no job queue, same pattern as Package 5's `.../process` route).
+  Finds-or-creates the current `ProgramWeek`, assembles the packet, runs
+  the safety gate, then either short-circuits (`200`, `{ status:
+  "safety_flagged", pathwayMessage }`) or generates and persists a review
+  (`201`, `{ status: "generated", review }`). `409`s if the user has no
+  `ParticipantProfile` yet (nothing to build a packet from).
+- A generated `WeeklyReview` row records `aiModel`, `promptVersion`
+  (`"package-0-synthesis-engine-v1"` — tracks the *prompt's* provenance,
+  which hasn't changed since Package 0, not this package's), the structured
+  claims, a rendered Markdown report, and `status: "generated"`.
+  `weeklyReviewInputObservations` (a many-to-many junction with no
+  `userId` column of its own) records every non-superseded Observation
+  considered — both confirmed and proposed — as the audit trail for a
+  disputed/audited review later. `scopedDataAccess.ts` gives it a narrow,
+  ownership-checked accessor (`createMany`/`listObservationIds`, both
+  joining back to `weeklyReviews.userId`) rather than the generic
+  `UserOwnedTable` pattern, since that pattern requires a `userId` column
+  the junction table doesn't have.
+- `GET /api/weekly-reviews` / `GET /api/weekly-reviews/:id` — the caller's
+  own reviews only, same ACC-02 scoping as every other route.
+
+### Insufficient evidence
+
+No special-case code — this falls out of reusing the shared, unmodified
+prompt. A sparse or empty week produces `proposedNextStep.type ===
+"insufficient-evidence"` because the same rubric-validated hard rule that
+governs eval-harness's `insufficient-evidence` and `missed-two-weeks`
+scenarios governs this too. `test/weeklyReview.test.ts` proves it against a
+real (zero-Observation) week and a real Anthropic call.
+
 ## Test suites
 
 **`test/isolation.test.ts`** — general auth-pipeline proof: an
@@ -876,6 +988,28 @@ Reverted, typechecked, and the full suite re-run to confirm a clean pass
 (53/53). Same demonstration, third time — this is now the standard this
 package holds every safety short-circuit test to.
 
+**Same proof, fourth time, for the weekly-level safety gate (Package 9):**
+the check in `weeklyReview/service.ts` (`if (safetyCheck.flagged)`) was
+temporarily replaced with `if (false && safetyCheck.flagged)` and the
+weekly-safety-gate test was re-run alone. It failed immediately — with the
+gate bypassed, a week whose only content was crisis-language text didn't
+short-circuit at all: it fell through to a real synthesis call and
+persisted an actual `WeeklyReview` row built from that content, returning
+`201`/`"generated"` instead of `200`/`"safety_flagged"`:
+
+```
+✖ the weekly-level safety gate short-circuits before any synthesis call, and writes a SafetyEvent
+  AssertionError [ERR_ASSERTION]: a flagged week is a valid outcome, not an HTTP error
+  201 !== 200
+```
+
+This is the starkest version of this demonstration in the package so far —
+the failure mode isn't a wrong status code on an otherwise-inert request,
+it's a real LLM call and a real persisted review generated from
+crisis-language content, which is exactly the class of failure this gate
+exists to prevent. Reverted, typechecked, and the full suite re-run to
+confirm a clean pass (59/59).
+
 ## Known limitations
 
 - **Timeline queries fetch all of a user's observations/inboxEvents, then
@@ -921,3 +1055,32 @@ package holds every safety short-circuit test to.
 - **`GET /api/safety-events` doesn't exist.** `test/extraction.test.ts`
   confirms `SafetyEvent` rows directly via `db` rather than through a
   route, since this package wasn't asked to expose one.
+- **No missed-week recovery logic (Package 9).** `getOrCreateCurrentProgramWeek()`
+  only ever computes and creates the *current* 7-day window from the
+  user's program start date. If a user skips generating a review for
+  several weeks, nothing back-fills or reconciles those skipped
+  `ProgramWeek`s — that's explicitly Package 10's job, not this one's, per
+  this package's own spec.
+- **No `Experiment` entity wired up yet (Package 9/10).** The `experiments`
+  and `experimentCompletionObservations` tables already exist in
+  `packages/db`'s schema, but nothing in this package reads or writes them.
+  `EvidencePacket.priorExperiment` is always `null` — passed through
+  gracefully rather than fabricated, per this package's spec, but it does
+  mean the synthesis prompt currently has no visibility into a prior
+  week's experiment when generating a new review.
+- **`structuredDetails` has no fixed schema**, so `evidencePacket.ts` reads
+  sub-fields like a meal's `approxCalories` or an activity's `intensity`
+  opportunistically with a type guard, never fabricating a value that
+  isn't there. Since no real extracted data has flowed through this path
+  before Package 9, this mapping hasn't been exercised against the actual
+  range of shapes the extraction model tends to produce — it's a
+  reasonable first attempt, not a validated contract.
+- **Medication context is a flag, not a fact.** Per PRD Section 8.2's own
+  scope (no drug name or dosage collected), a user on a weight-management
+  medication gets one generic medication entry stating plainly that no
+  specifics were collected. The synthesis prompt can note that medication
+  context affects interpretation in general terms; it cannot reason about
+  a *specific* medication's known effects, because it was never told one.
+- **Real synthesis output now reaches actual users.** See `/OPERATIONS.md`
+  at the repo root for the rollout gate this package's spec requires before
+  onboarding anyone beyond founder solo testing.

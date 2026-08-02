@@ -1,0 +1,17 @@
+{
+  "name": "@our-next-50/synthesis-core",
+  "version": "0.1.0",
+  "description": "Shared weekly-synthesis engine (system prompt, EvidencePacket/SynthesisOutput types, safety check) used by both packages/eval-harness and packages/api (Package 9)",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}
