@@ -1475,3 +1475,10 @@ every package's README in one place.
   legally settled (Package 11).** See "Account deletion" above and
   `/OPERATIONS.md` — this needs explicit confirmation during the pending
   attorney review, not just an engineering decision.
+- **No saved unit preference exists yet** — the schema already tolerates
+  mixed lb/kg entries per observation gracefully (see the
+  `unit-date-ambiguity` scenario in `packages/eval-harness`), but there's
+  no `preferredUnit` field on the user/profile to default forms and
+  displays to a user's preferred unit. Small, legitimate backlog item for
+  whenever frontend work begins — not needed for API-level Phase 1
+  completeness.
