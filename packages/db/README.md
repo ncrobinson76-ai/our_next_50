@@ -116,7 +116,14 @@ confirmed / corrected), plus **provenance** — which `InboxEvent` and/or
 observation never deletes the old row. A new row is inserted with
 `supersedesObservationId` pointing back at the old one, and the old row's
 `isSuperseded` flag is set to `true` — both in the same transaction, by the
-application (there's no DB trigger enforcing this).
+application (there's no DB trigger enforcing this). Per PRD Section 8.4,
+"no entry" and "did not happen" are distinct states: **absence of a row**
+for a given user/date/type still means "no entry" (unknown), while
+**`isExplicitNonEvent`** (default `false`) marks a row that exists because
+the user actively reported that nothing happened — "no activity today,"
+"skipped dinner" — as opposed to a normal positive observation. Both kinds
+are ordinary rows in this table; the flag just distinguishes which kind a
+given row is.
 
 **`program_weeks`** — one calendar week of a user's program: date range,
 which completed-week number it is, whether there's enough evidence to

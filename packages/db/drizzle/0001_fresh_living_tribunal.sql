@@ -1,0 +1,1 @@
+ALTER TABLE "observations" ADD COLUMN "is_explicit_non_event" boolean DEFAULT false NOT NULL;

@@ -13,6 +13,16 @@ import { users } from "./users";
 // symptom description, non-scale win), and `structuredDetails` holds any
 // type-specific extra structure (e.g. a meal's approxCalories, an
 // activity's intensity/duration).
+//
+// Per PRD Section 8.4, "no entry" and "did not happen" are distinct states,
+// and this table only ever represents the latter — the former is simply the
+// absence of a row for a given user/date/type, which no column here can or
+// should model. `isExplicitNonEvent` marks the case where a row exists
+// specifically because the user actively reported a negative — "no activity
+// today," "skipped dinner" — as opposed to a normal positive observation.
+// Both explicit non-events and normal observations are ordinary rows in
+// this table; `isExplicitNonEvent` just distinguishes which kind a given
+// row is. It defaults to false (a normal logged observation).
 export const observations = pgTable(
   "observations",
   {
@@ -29,6 +39,12 @@ export const observations = pgTable(
     unit: text("unit"),
     textValue: text("text_value"),
     structuredDetails: jsonb("structured_details"),
+
+    // See file-header comment: true means this row is an explicit negative
+    // report ("no activity today," "skipped dinner"), not a normal
+    // positive observation. Absence of a row remains the only way to mean
+    // "no entry" / unknown.
+    isExplicitNonEvent: boolean("is_explicit_non_event").notNull().default(false),
 
     confidenceLevel: confidenceLevelEnum("confidence_level").notNull().default("user_reported"),
     verificationState: verificationStateEnum("verification_state").notNull().default("proposed"),

@@ -8,6 +8,13 @@
       "when": 1785640488438,
       "tag": "0000_aromatic_smiling_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785641549175,
+      "tag": "0001_fresh_living_tribunal",
+      "breakpoints": true
     }
   ]
 }
