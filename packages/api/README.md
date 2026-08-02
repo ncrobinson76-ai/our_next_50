@@ -1305,6 +1305,53 @@ zero missed `ProgramWeek`s were backfilled instead of the expected 3:
 Both reverted, typechecked, and the full suite re-run to confirm a clean
 pass (78/78).
 
+## Package 12: end-to-end verification
+
+The final package — no new features, no new routes. `test/goldenPath.test.ts`
+adds two tests that chain a realistic session across every package built so
+far, rather than testing each package against its own isolated fixtures the
+way every other file in this directory does:
+
+- **"golden path: a realistic end-to-end session across every package"** —
+  real login (the account row is created by `resolveAppUser` on first
+  authenticated request, not pre-seeded, unlike every other test file's
+  shortcut) through real consent acceptance, onboarding, one submission
+  each via text/form/voice, confirm one Observation and correct another,
+  generate a real weekly review and verify the fabricated-but-unconfirmed
+  marker value is never stated as plain fact, accept the resulting
+  Experiment and log a completion, verify `priorExperiment` wiring against
+  that real data, view Progress and Privacy, export and verify
+  completeness, and finish with a real two-step account deletion. One
+  continuous test, real Anthropic calls throughout, ~50-70 seconds.
+- **"multi-week gap: a 3+ week absence produces an honest, neutral
+  recovery — never fabricated continuity"** — a silent 22-day-old account
+  generates a real review through the actual HTTP route and asserts
+  `insufficient-evidence` (not fabricated progress), plus that all three
+  missed weeks are honestly recorded as `skipped`.
+
+Two real test-writing bugs were caught and fixed while building this
+file, worth noting since they say something about what this test is
+actually checking, not just noise: an assertion that the fabricated
+marker value must never appear *anywhere* in `recordedFacts` was too
+blunt — the real model output correctly mentioned it while explicitly
+hedging it as unconfirmed ("...were flagged in the data as unconfirmed by
+the user and are not treated as verified facts"), which is *correct,
+desired* behavior, not a violation; the assertion was rewritten to check
+that any mention is hedged, not that the value never appears at all. And a
+program-start-date offset (`daysAgo(8)`) turned out to put "today" only
+one day into its computed weekly window, given `ProgramWeek` windows are
+anchored to a non-round remainder — most of the test's "logged earlier
+this week" seed data was silently landing in the prior, skipped week; the
+offset was changed to `daysAgo(13)`, worked out by hand against
+`programWeek.ts`'s actual window-computation math, to give the intended
+7-day range ending on "today."
+
+See `/PHASE_1_STATUS.md` at the repo root for the full PRD Section 15
+definition-of-done report this package produces, including which specific
+assertions in this file map to which numbered item, full test-suite pass
+counts across every package, and every known limitation compiled from
+every package's README in one place.
+
 ## Known limitations
 
 - **Timeline queries fetch all of a user's observations/inboxEvents, then
