@@ -2,12 +2,17 @@ import type { InferSelectModel } from "drizzle-orm";
 import type { inboxEvents } from "../db";
 import type { ScopedDataAccess } from "../data/scopedDataAccess";
 import { toObservationResponse, type ObservationResponse } from "../observations/mapping";
-import { runSafetyScreen, type SafetyPolicyCategory } from "./safetyScreen";
+import { checkRapidWeightChange, runSafetyScreen, type SafetyPolicyCategory } from "./safetyScreen";
 import { extractObservations, type ExtractedObservation } from "./extraction";
 
 type InboxEventRow = InferSelectModel<typeof inboxEvents>;
 
-export const SAFETY_SCREEN_VERSION = "package-5-keyword-screen-v1";
+// Bumped in Package 8, which meaningfully changed detection logic
+// (expanded keyword coverage, two new categories, the new rapid-weight-
+// change check) — SafetyEvent.systemVersion should honestly reflect which
+// version of the screen actually flagged a given entry, so a later
+// reviewer can correlate "we started catching category X after version Y."
+export const SAFETY_SCREEN_VERSION = "package-8-safety-screen-v1";
 
 export interface PipelineResult {
   status: "safety_flagged" | "needs_followup" | "processed";
@@ -141,6 +146,28 @@ export async function runPipeline(
       pendingFollowUpQuestion: extraction.followUpQuestion,
     });
     return { status: "needs_followup", followUpQuestion: extraction.followUpQuestion };
+  }
+
+  // Package 8: a second, independent short-circuit point — closes the
+  // rapid-weight-change gap left open since Package 6. This is a
+  // computed comparison against the user's own history, not text
+  // matching, so it can only run once extraction has produced a
+  // candidate weight value; it uses the exact same SafetyEvent +
+  // short-circuit pattern as the text-based screen above, just triggered
+  // later in this same pipeline run. Same invariant either way: a
+  // flagged entry writes zero Observations.
+  const weightObservations = extraction.observations.filter((o) => o.type === "weight");
+  if (weightObservations.length > 0) {
+    const rapidWeightCheck = await checkRapidWeightChange(data, weightObservations);
+    if (rapidWeightCheck.flagged) {
+      await writeSafetyEvents(data, event, ["rapid_weight_change"]);
+      await data.inboxEvents.update(event.id, {
+        status: "safety_flagged",
+        processedAt: new Date(),
+        pendingFollowUpQuestion: null,
+      });
+      return { status: "safety_flagged", pathwayMessage: rapidWeightCheck.pathwayMessage };
+    }
   }
 
   const createdObservations = await writeObservations(data, event, extraction.observations);

@@ -1,6 +1,6 @@
 # api
 
-Packages 2 through 7 of "Our Next 50".
+Packages 2 through 8 of "Our Next 50".
 
 **Package 2** built authentication, session handling, consent capture, and
 server-side row-level authorization — entirely about "who is this request
@@ -32,6 +32,17 @@ same `{ text }` payload shape text already uses, and hand off to the
 plus presenting the confirm/correct routes Package 5 already built as one
 coherent "view → confirm/correct" story. No new write logic. See
 "Timeline" below.
+
+**Package 8** hardened the safety screen Package 5 built and Package 6 has
+been running unmodified since (`src/inbox/safetyScreen.ts`): deeper
+keyword coverage on the original three categories, two new categories PRD
+Section 10 names (pregnancy-related content, extreme restriction/
+over-exercise), and the rapid-weight-change gap explicitly left open since
+Package 6 is now closed. Detection logic only — the pipeline's control
+flow from Package 5 (screen-before-extraction, hard short-circuit) is
+untouched. See "Safety screening" below, **especially the "Known
+limitations, for clinical/legal review" section**, which exists
+specifically to be handed to a human reviewer.
 
 ## Framework choice
 
@@ -254,20 +265,19 @@ The pipeline order is the single most important property here, mirroring
 PRD Section 9 exactly:
 
 1. **Safety screening, first, always** (`src/inbox/safetyScreen.ts`).
-   Ported from `packages/eval-harness/safetyCheck.ts`'s keyword lists —
-   same rule-based approach, adapted from a full week's evidence packet to
-   one InboxEvent's text. Covers `urgent_symptom`, `crisis_language`, and
-   `disordered_eating` (matching `packages/db`'s `safetyPolicyCategoryEnum`
-   naming directly, since this module writes real `SafetyEvent` rows).
-   **Not ported**: eval-harness's rapid-weight-change check — that's a
-   trend detector over multiple weeks' observations, not something that
-   operates on one entry's free text, so it doesn't fit this package's
-   scope by the PRD's own framing. If flagged: a `SafetyEvent` row is
-   written per matched category (category + pathway key + a reference to
-   the InboxEvent — **never** the flagged text itself, per PRD Section 11
-   and this table's design from Package 1), the InboxEvent's status
-   becomes `safety_flagged`, and the pipeline stops — no LLM call is ever
-   made, mirroring the short-circuit pattern already proven in Package 0's
+   Started (Package 5) as a port of `packages/eval-harness/safetyCheck.ts`'s
+   keyword lists, adapted from a full week's evidence packet to one
+   InboxEvent's text; hardened in Package 8 (see "Safety screening" below
+   for the full detail) to five categories: `urgent_symptom`,
+   `crisis_language`, `disordered_eating`, `pregnancy_related`,
+   `extreme_restriction` (matching `packages/db`'s
+   `safetyPolicyCategoryEnum` naming directly, since this module writes
+   real `SafetyEvent` rows). If flagged: a `SafetyEvent` row is written
+   per matched category (category + pathway key + a reference to the
+   InboxEvent — **never** the flagged text itself, per PRD Section 11 and
+   this table's design from Package 1), the InboxEvent's status becomes
+   `safety_flagged`, and the pipeline stops — no LLM call is ever made,
+   mirroring the short-circuit pattern already proven in Package 0's
    `synthesizeWeek()`.
 2. **Extraction, only if not flagged** (`src/inbox/extraction.ts`, same
    `getClient()`/system-prompt/JSON-parsing shape as
@@ -301,8 +311,161 @@ PRD Section 9 exactly:
    model output contains — "at most one, ever" is enforced in code, not
    left to the prompt alone (see `test/extraction.test.ts`'s direct test
    of this).
-5. **No follow-up**: Observations are written directly and status becomes
-   `processed`.
+5. **Rapid-weight-change check (Package 8), a second independent
+   short-circuit point.** Unlike step 1, this is a *computed* check, not
+   text matching — it can only run once extraction has produced a
+   candidate weight value, so it happens here, right before Observations
+   are written. If flagged: same `SafetyEvent` + `safety_flagged` +
+   zero-Observations pattern as step 1, just triggered later in the same
+   pipeline run. See "Safety screening" below.
+6. **No follow-up, not flagged**: Observations are written directly and
+   status becomes `processed`.
+
+## Safety screening (`src/inbox/safetyScreen.ts`) — Package 8 hardening
+
+Package 8's whole job was making the screen itself more capable — **the
+pipeline's control flow above (screen-before-extraction, hard
+short-circuit) is completely untouched.** Five categories now, up from
+three:
+
+| Category | How it's detected | Since |
+| --- | --- | --- |
+| `urgent_symptom` | keyword match on the entry's text | Package 5 |
+| `crisis_language` | keyword match | Package 5 |
+| `disordered_eating` | keyword match | Package 5 |
+| `pregnancy_related` | keyword match | **Package 8** |
+| `extreme_restriction` | keyword match | **Package 8** |
+| `rapid_weight_change` | computed comparison, not text | **Package 8** |
+
+### Expanded keyword coverage on the original three categories
+
+Per this package's spec: not padded arbitrarily. Every addition was
+cross-checked against the actual text in
+`packages/eval-harness/scenarios/` for phrasings the original lists would
+have missed, and every addition has an inline comment in
+`safetyScreen.ts` explaining why. The one concrete gap the cross-check
+surfaced: `possible-disordered-eating-language.json`'s per-day
+`freeTextNotes` field "Trying to make up for Tuesday still" — read as its
+**own** InboxEvent in the real per-entry pipeline (unlike eval-harness's
+whole-week packet, which screens all of a week's text as one block) — matched
+none of the original keywords, even though the same scenario's full weekly
+reflection text ("binged", "don't deserve to eat") did. That's a real
+difference between the per-entry model this app runs on and the
+whole-week model eval-harness was originally built to evaluate, not
+something eval-harness's own test suite could ever surface on its own.
+The rest of the additions are proactive (the eval-harness scenario library
+only has one example scenario per category, which doesn't exercise the
+realistic range of real phrasing) — see `safetyScreen.ts`'s comments for
+the reasoning behind each one.
+
+### Two new categories PRD Section 10 names
+
+- **`pregnancy_related`** — a weight-management app giving restriction/
+  exercise-intensity advice to someone who may be pregnant is a distinct
+  risk, not a variant of `disordered_eating` or `other`. Scoped narrowly
+  to pregnancy/trying-to-conceive language (not breastfeeding/postpartum)
+  to match the PRD's exact framing rather than quietly expanding it.
+- **`extreme_restriction`** — compulsive/rule-bound exercise or caloric
+  restriction, framed as compulsion rather than eating-disorder-specific
+  language. Deliberately calibrated against
+  `very-high-hunger-unwise-to-restrict.json`, an eval-harness scenario
+  built specifically to test *restraint*, not trigger a safety
+  short-circuit (someone training hard, considering "cutting my portions
+  down" because hunger is intense) — none of this category's keywords
+  match that scenario's text; ordinary portion-control language and
+  dedicated athletic training are deliberately out of scope. The bar is
+  genuinely compulsive/rigid framing, not high effort or normal
+  calorie-consciousness. `test/safetyHardening.test.ts` runs that
+  scenario's exact text as a negative/calibration test.
+
+### `rapid_weight_change` — closing the Package 6 gap
+
+A computed comparison, not text matching: when extraction proposes a
+`weight` Observation, `checkRapidWeightChange()` compares it against the
+user's own most recent prior (non-superseded) weight Observation, as a
+fraction of their `ParticipantProfile`'s starting weight — same 2%
+threshold and same formula shape as `packages/eval-harness`'s Package 0
+prototype (`|Δweight| / startingWeight`), adapted from "first vs. last
+logged weight within a week" to "new value vs. most recent prior value."
+Unit-converts kg/lb so a mismatched scale unit between entries can't
+produce a false negative. Skips the check (never flags) when there's no
+`ParticipantProfile` on file, no starting weight, or no prior weight
+Observation to compare against — there's nothing to compute a rapid
+*change* from without a "before" point.
+
+### False positives: gentler wording, not cleverer regex
+
+Keyword matching will always have false positives (idiomatic language
+like "I could just die of embarrassment") and this package doesn't chase
+that with regex — per its own instructions, that's a rabbit hole. Instead,
+`crisis_language` and `disordered_eating`'s pathway messages (specifically
+those two — not the other three, see the reasoning below) were rewritten
+to be gentle about the possibility of a false trigger without undermining
+a true positive: the protective content (crisis line, "please reach out")
+comes first and stays unconditional, the false-positive acknowledgment is
+clearly subordinate, and `crisis_language`'s message closes by explicitly
+telling the user not to let a possible misunderstanding stop them from
+reaching out if any part of it was real. `test/safetyHardening.test.ts`
+asserts both messages still contain real protective content (a crisis
+line number, a pointer to a doctor/therapist) and don't lead with an
+apology.
+
+**Honest flag, as invited by this package's own instructions**: this is a
+real, unresolved tension, and I'm not fully confident the wording fully
+threads it. A person in genuine crisis who reads "if I've misunderstood…"
+before finishing the message could, in principle, disengage before
+reaching the part that tells them not to. I made a judgment call
+(protective content first, unconditionally; softening clearly
+subordinate and last) but this is exactly the kind of wording a clinical
+reviewer should read closely and may want to revise. `urgent_symptom`,
+`pregnancy_related`, `extreme_restriction`, and `rapid_weight_change`
+weren't given this treatment — the task scoped it to `crisis_language`/
+`disordered_eating` specifically, and I didn't extend it further on my
+own judgment.
+
+One more honest gap: the crisis_language message references being able to
+send a "follow-up describing what you actually meant" to return to normal
+processing — that's real (submit a new `/api/inbox/text` entry, which
+gets screened fresh), but there's no *dedicated* "that was a false
+positive" affordance or route. The message points at an existing,
+general-purpose mechanism, not a purpose-built one. A future package
+building the actual UX around this might want something more direct.
+
+### Known limitations, for clinical/legal review
+
+This section exists to be handed to a human reviewer. It is written to be
+maximally honest, not reassuring:
+
+- **This is keyword-based pattern matching, not a clinical screening
+  tool.** It has not been designed, validated, or reviewed by a licensed
+  mental health professional or eating-disorder specialist. Nothing about
+  its existence should be read as a clinical judgment about any user.
+- **It will have false negatives** — real risk language it will not
+  catch, because it doesn't understand meaning, only substring matches
+  against a finite, human-written list. Anyone can phrase something this
+  screen is supposed to catch in a way that isn't on the list.
+- **It will have false positives** — ordinary, non-concerning language
+  that happens to match a keyword. The wording changes in this package
+  soften the user-facing impact of a false positive but do not reduce how
+  often one happens.
+- **`rapid_weight_change` only looks at this user's own history**, not
+  population norms, medical context, or plausible causes (illness,
+  medication changes, measurement error, a different scale). It cannot
+  distinguish a clinically significant change from a benign one — it
+  purely detects "logged value moved a lot since the last one."
+- **None of this has been load- or adversarially-tested** against
+  attempts to phrase risk language so as to avoid detection, or against a
+  large, realistic corpus of real user text. The eval-harness scenario
+  library this package's cross-check drew from is 16 hand-written
+  fictional examples, not real user data.
+- **The two new categories (`pregnancy_related`, `extreme_restriction`)
+  are new in this package** and have had zero real-world exposure. Their
+  keyword lists and pathway messages are this package's best first attempt,
+  not a validated clinical instrument.
+- **This system cannot take any action beyond showing a message and
+  pausing normal processing.** It cannot contact anyone, cannot verify a
+  user is safe, and cannot distinguish "user read the message and is
+  fine" from "user never saw the message."
 
 ## Voice channel (`src/routes/voice.ts`, `src/voice/`)
 
@@ -616,6 +779,36 @@ reason to spend real LLM calls testing it):
    rejected with `400`.
 6. Cross-account isolation on both routes; unauthenticated rejection.
 
+**`test/safetyHardening.test.ts`** — Package 8's own tests. Mostly pure
+unit tests against `runSafetyScreen()` directly (no server, no DB, no LLM
+calls needed for keyword-matching correctness); the rapid-weight-change
+section is the exception, seeding a `ParticipantProfile` and prior weight
+`Observation` via `db` and running a real pipeline call (same pattern as
+`test/extraction.test.ts`):
+
+1. Expanded keyword coverage: a phrase not in the original three
+   categories' lists now correctly flags each of them, including the
+   concrete gap the eval-harness cross-check found (see "Safety
+   screening" above).
+2. Both new categories (`pregnancy_related`, `extreme_restriction`) flag
+   correctly and produce their own distinct pathway messages.
+3. **Calibration**: eval-harness's `very-high-hunger-unwise-to-restrict.json`
+   scenario text — deliberately NOT meant to trigger a safety
+   short-circuit — is asserted to not flag `extreme_restriction`.
+4. **True-positive wording**: the softened `crisis_language`/
+   `disordered_eating` messages are asserted to still contain real
+   protective content (the 988 crisis line, a pointer to a doctor/
+   therapist) and to not lead with an apology/hedge.
+5. Rapid-weight-change: a seeded prior weight plus a new entry exceeding
+   2% of starting weight short-circuits exactly like the text-based
+   categories (`safety_flagged`, one `SafetyEvent` with
+   `policyCategory: "rapid_weight_change"`, zero `Observation` rows); a
+   normal entry within threshold processes normally.
+6. The full existing `test/extraction.test.ts` and `test/voice.test.ts`
+   suites (Package 5/6, unmodified) are re-run as part of the same
+   `npm test` invocation — confirmed passing, no regressions from this
+   package's detection-logic changes.
+
 **How sessions are established in tests, and why:** a real browser-driven
 Replit OIDC login can't be automated in CI — there's no way to script a
 human clicking "Allow" on replit.com. So every test file uses a test-only
@@ -664,6 +857,25 @@ Reverted, typechecked, and the full suite re-run to confirm a clean pass
 would actually catch the safety screen being missing or broken, not just
 that it passes today.
 
+**Same proof again for rapid-weight-change (Package 8):** the check in
+`pipeline.ts` (`if (rapidWeightCheck.flagged)`) was temporarily replaced
+with `if (false && rapidWeightCheck.flagged)` and the rapid-weight-change
+test was re-run alone. It failed immediately — with the check bypassed,
+the entry with a 15 lb / 7.5%-of-starting-weight drop processed normally
+instead of short-circuiting:
+
+```
+✖ rapid weight change short-circuits exactly like the text-based categories
+  AssertionError [ERR_ASSERTION]
+  + actual - expected
+  + 'processed'
+  - 'safety_flagged'
+```
+
+Reverted, typechecked, and the full suite re-run to confirm a clean pass
+(53/53). Same demonstration, third time — this is now the standard this
+package holds every safety short-circuit test to.
+
 ## Known limitations
 
 - **Timeline queries fetch all of a user's observations/inboxEvents, then
@@ -700,16 +912,12 @@ that it passes today.
   `@google-cloud/storage` → `teeny-request`/`gaxios` → `uuid`, "no fix
   available" per `npm audit`). Not something fixable from this package —
   it's Replit's SDK's own transitive dependency choice.
-- **Per-entry safety screening (`packages/api/src/inbox/safetyScreen.ts`)
-  does not detect rapid weight change**, since that requires a trend
-  across multiple observations, not a single entry's text — it's
-  structurally out of scope for per-entry screening. Rapid-weight-change
-  detection currently only exists in `packages/eval-harness`'s
-  weekly-synthesis prototype (Package 0), which isn't wired into the live
-  app until Package 9. This means a dangerous single-week change could go
-  undetected by the live app for up to a week. Accepted as a known Phase 1
-  gap, not blocking — flagged here so it isn't forgotten before a safety
-  review.
+- **Resolved in Package 8**: per-entry safety screening not detecting
+  rapid weight change (originally flagged here since Package 6) is now
+  closed via a computed comparison against the user's own prior weight
+  history — see "Safety screening" above and its "Known limitations, for
+  clinical/legal review" subsection for what that check does and doesn't
+  account for.
 - **`GET /api/safety-events` doesn't exist.** `test/extraction.test.ts`
   confirms `SafetyEvent` rows directly via `db` rather than through a
   route, since this package wasn't asked to expose one.
