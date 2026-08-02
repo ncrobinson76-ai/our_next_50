@@ -3,8 +3,15 @@ import type { weeklyReviews as weeklyReviewsTable } from "../db";
 import type { ScopedDataAccess } from "../data/scopedDataAccess";
 import type { SafetyPolicyCategory } from "../inbox/safetyScreen";
 import { runSafetyCheck, synthesizeFromPacket, type SynthesisOutput } from "../synthesisCore";
+import { createExperimentFromSynthesis } from "../experiment/service";
 import { assembleEvidencePacket } from "./evidencePacket";
-import { findProgramStartDate, getOrCreateCurrentProgramWeek } from "./programWeek";
+import { buildPriorExperienceContext, findMostRecentEngagedExperiment } from "./priorExperiment";
+import {
+  computeLoggedDayCount,
+  findProgramStartDate,
+  isEvidenceSufficient,
+  syncProgramWeeksThroughToday,
+} from "./programWeek";
 
 type WeeklyReviewRow = InferSelectModel<typeof weeklyReviewsTable>;
 type WeeklyReviewInsert = Omit<InferInsertModel<typeof weeklyReviewsTable>, "userId">;
@@ -57,10 +64,13 @@ function renderReport(synthesis: SynthesisOutput): string {
 }
 
 /**
- * The full Package 9 flow: find-or-create the current ProgramWeek, assemble
- * a real EvidencePacket from this user's own data, run the weekly-level
- * safety gate, and — only if it doesn't flag — call the shared synthesis
- * engine and persist a WeeklyReview.
+ * The full flow: sync real sequential ProgramWeeks through today (Package
+ * 10 — backfilling any missed weeks honestly along the way), find the most
+ * recent Experiment the user actually engaged with for priorExperiment
+ * context, assemble a real EvidencePacket from this user's own data, run
+ * the weekly-level safety gate, and — only if it doesn't flag — call the
+ * shared synthesis engine, persist a WeeklyReview, and (if the synthesis
+ * proposed one) create a new Experiment from it.
  */
 export async function generateCurrentWeekReview(data: ScopedDataAccess): Promise<GenerateReviewResult> {
   const profileVersions = await data.participantProfiles.list();
@@ -73,14 +83,18 @@ export async function generateCurrentWeekReview(data: ScopedDataAccess): Promise
   }
   const currentProfile = profileVersions.reduce((max, p) => (p.version > max.version ? p : max));
 
-  const programWeek = await getOrCreateCurrentProgramWeek(data, programStartDate);
+  const { current: programWeek } = await syncProgramWeeksThroughToday(data, programStartDate);
+
+  const priorExperimentRow = await findMostRecentEngagedExperiment(data, programWeek.weekStartDate);
+  const priorExperience = priorExperimentRow ? await buildPriorExperienceContext(data, priorExperimentRow) : null;
 
   const allObservations = await data.observations.list();
   const { packet, includedObservationIds } = assembleEvidencePacket(
     programWeek,
     currentProfile,
     programStartDate,
-    allObservations
+    allObservations,
+    priorExperience
   );
 
   // Weekly-level safety gate, BEFORE any call to the synthesis LLM. A
@@ -137,6 +151,19 @@ export async function generateCurrentWeekReview(data: ScopedDataAccess): Promise
   const review = await data.weeklyReviews.create(insertValues);
 
   await data.weeklyReviewInputObservations.createMany(review.id, includedObservationIds);
+
+  // Refine the ProgramWeek's evidenceSufficient flag using the packet's
+  // own authoritative loggedDayCount (computed from the exact same
+  // filtered weekRows used for synthesis, more precise than the quick
+  // pre-check syncProgramWeeksThroughToday ran before any packet existed),
+  // and mark the week completed now that a review has actually been
+  // generated for it.
+  await data.programWeeks.update(programWeek.id, {
+    status: "completed",
+    evidenceSufficient: isEvidenceSufficient(computeLoggedDayCount(allObservations, programWeek.weekStartDate, programWeek.weekEndDate)),
+  });
+
+  await createExperimentFromSynthesis(data, review.id, synthesis);
 
   return { status: "generated", review };
 }

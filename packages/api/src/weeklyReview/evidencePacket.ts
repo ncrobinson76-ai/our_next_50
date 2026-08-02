@@ -6,6 +6,7 @@ import type {
   EvidencePacket,
   MedicationContext,
   Observation as DayObservation,
+  PriorExperiment,
   WeeklyReflection,
 } from "../synthesisCore";
 import { computeAverageHungerLevel, computeAverageSleepHours, computeWeightTrend, daysBetweenInclusive } from "../synthesisCore";
@@ -312,7 +313,8 @@ export function assembleEvidencePacket(
   programWeek: ProgramWeekRow,
   currentProfile: ProfileRow,
   programStartDate: string,
-  allObservations: ObservationRow[]
+  allObservations: ObservationRow[],
+  priorExperiment: PriorExperiment | null
 ): AssembledEvidencePacket {
   const weekRows = allObservations.filter(
     (row) => !row.isSuperseded && isWithinWeek(row, programWeek.weekStartDate, programWeek.weekEndDate)
@@ -342,8 +344,11 @@ export function assembleEvidencePacket(
     baseline: buildBaselineProfile(currentProfile, programStartDate),
     observations: dayObservations,
     weeklyReflection,
-    // Package 10's job — no Experiment entity is wired into the API yet.
-    priorExperiment: null,
+    // Package 10: the most recent Experiment the user actually engaged
+    // with before this week, if any — see weeklyReview/priorExperiment.ts
+    // for how this is found and mapped. Correctly null for a week with no
+    // such experiment, per the shape's existing optionality.
+    priorExperiment,
     medicationContext: buildMedicationContext(currentProfile),
     derivedMetrics,
   };

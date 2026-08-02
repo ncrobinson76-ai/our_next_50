@@ -761,6 +761,140 @@ governs eval-harness's `insufficient-evidence` and `missed-two-weeks`
 scenarios governs this too. `test/weeklyReview.test.ts` proves it against a
 real (zero-Observation) week and a real Anthropic call.
 
+## Experiments and real program-week logic (`src/experiment/`, `src/weeklyReview/programWeek.ts`) — Package 10
+
+Two related things: closing the gap Package 9 explicitly left open
+(`evidencePacket.ts`'s `priorExperiment` was hardcoded `null`), and
+replacing Package 9's simplified 7-day-window placeholder with real,
+sequential program-week logic per PRD Section 8.7.
+
+### Experiment lifecycle (`src/experiment/service.ts`)
+
+When a generated `WeeklyReview`'s `proposedNextStep.type === "experiment"`,
+`createExperimentFromSynthesis()` creates a real `Experiment` row from it.
+
+**Mapping gap, worth being explicit about**: this package's spec says to
+pull `recommendation`/`rationale`/`target`/`difficulty`/`unchangedBehaviors`
+"directly from the synthesis output's own fields... reuse it, don't
+reinterpret it." In practice, `packages/synthesis-core/types.ts`'s
+`SynthesisOutput` (the Package 0 shape, unmodified since) has no field
+literally named `rationale`, and no `target`/`difficulty` field at all —
+only `proposedNextStep.description`, `tentativeHypotheses`, and
+`whatShouldRemainUnchanged`. Rather than invent values for `target`/
+`difficulty` (fields the rubric-validated prompt was never asked to
+produce) or quietly extend that prompt/type to add them, this maps what
+genuinely exists: `recommendation` <- `proposedNextStep.description`,
+`unchangedBehaviors` <- `whatShouldRemainUnchanged` (an exact field-name
+correspondence), `rationale` <- `tentativeHypotheses` joined into prose.
+`target`/`difficulty` are left `null` — an honest gap, not a fabricated
+value, until a future package deliberately extends the prompt to propose
+them.
+
+Status transitions (`experimentStatusEnum`: `proposed, accepted, modified,
+declined, paused, retired`) are enforced through one table, not scattered
+checks:
+
+```
+proposed -> accepted | modified | declined
+accepted -> paused | retired
+modified -> paused | retired
+paused   -> retired
+declined, retired: terminal
+```
+
+- **`/accept`** — sets `startedAt`.
+- **`/modify`** — accepts a user-edited recommendation. The `experiments`
+  table has no dedicated "original vs. edited" column, so the edit is
+  stored by overwriting `recommendation` and appending an audit note to
+  `rationale` recording the original text — reusing an existing free-text
+  field rather than adding a schema column for this alone.
+- **`/decline`**, **`/pause`**, **`/retire`** (retire accepts an optional
+  `outcome` in the body).
+- **`/log-completion`** — a lightweight completion check-in (`completed`
+  boolean + `date` + optional `note`), deliberately separate from full
+  Observation logging: no extraction, no LLM call. Writes one Observation
+  of type `experiment_completion` directly, with `isExplicitNonEvent`
+  encoding "did not do it" (reusing PRD Section 8.4's existing
+  explicit-non-event concept rather than inventing a new field), linked via
+  the `experimentCompletionObservations` junction. Only allowed while
+  `accepted` **or** `modified` — both represent an experiment the user is
+  actively engaged with (`isActivelyAccepted()`), even though the spec text
+  names only "accepted" literally; the same reading applies to `/pause`/
+  `/retire`, which the spec explicitly scopes to "an already-accepted
+  experiment" as a general phrase, not a literal single-status check.
+
+Every route rejects an illegal transition with `409 { error:
+"illegal_transition", from, to }`, enforced server-side — never inferred
+from what a well-behaved client would send. `test/experiment.test.ts`
+exercises every illegal transition explicitly (accept-after-decline,
+retire-after-retire, modify-after-accept, pause-after-pause,
+pause-on-a-still-proposed-experiment), not just the happy path, plus the
+standard "prove it would fail without the guard" demonstration (see below).
+
+### `priorExperiment` wired for real (`src/weeklyReview/priorExperiment.ts`)
+
+`findMostRecentEngagedExperiment()` finds the most recent Experiment whose
+status is `accepted`/`modified`/`paused`/`retired` (i.e. one the user
+actually engaged with — `proposed` and `declined` convey nothing useful as
+prior-week context) with `startedAt` before the new week's start date.
+`buildPriorExperienceContext()` maps it plus its completion check-ins into
+`packages/synthesis-core`'s `PriorExperiment` shape:
+
+- `description` <- `recommendation`, `hypothesis` <- `rationale`,
+  `startDate` <- `startedAt`.
+- `status`: the DB's 6-value `experimentStatusEnum` collapses onto
+  `PriorExperiment`'s coarser 3-value set (`accepted`/`modified` ->
+  `"ongoing"`, `paused` -> `"abandoned"`, `retired` -> `"completed"`) — a
+  deliberate simplification versus the DB's richer enum, not a 1:1 mirror.
+  The raw DB status word is preserved in `outcomeNotes` so nothing is
+  actually lost to the coarser bucketing.
+- `outcomeNotes` summarizes completion check-ins ("Logged as done on N and
+  not done on M of T tracked check-in(s)").
+
+`evidencePacket.ts`'s `assembleEvidencePacket()` now takes `priorExperiment`
+as a parameter instead of a hardcoded `null` — a week with no engaged prior
+experiment still correctly omits the field, per the shape's existing
+optionality, rather than fabricating one.
+
+### Real program-week / missed-time logic (`src/weeklyReview/programWeek.ts`)
+
+`syncProgramWeeksThroughToday()` replaces Package 9's
+`getOrCreateCurrentProgramWeek()`. Real sequential 7-day windows from the
+user's actual program start date (still anchored to their version-1
+profile's `startingWeightDate`, per Package 9), walking every window index
+from 0 through today's — not "the last 7 days from today." Per PRD Section
+8.7, a week strictly before today's is never left silently unaccounted
+for:
+
+- No row at all for that window -> created with `status: "skipped"`.
+- A row exists but is still `"scheduled"` (a review was never generated
+  for it) -> corrected to `"skipped"` — a lapsed past week reads the same
+  as a fully-missed one, whether or not it happened to get a row along the
+  way.
+- Today's own window -> found or created as `"scheduled"`, then marked
+  `"completed"` by `weeklyReview/service.ts` once a review is actually
+  generated for it.
+
+**Evidence-sufficiency threshold** (`EVIDENCE_SUFFICIENCY_MIN_LOGGED_DAYS =
+3`): made explicit and queryable rather than left implicit in the
+synthesis model's own judgment. Derived from `packages/eval-harness`'s own
+fixtures, not picked arbitrarily — `insufficient-evidence.json` logs 1 of 7
+days and `missed-two-weeks.json` logs 2 of 14, both built to trigger the
+prompt's insufficient-evidence path; `missed-day.json` logs 6 of 7 and was
+built to get normal synthesis. 3 sits cleanly between the two, with margin
+on both sides. Computed twice per current week: a quick pre-check during
+sync (before any packet exists), then refined using the packet's own
+authoritative `loggedDayCount` once a review is actually generated for it
+— the same threshold function both times, just applied to increasingly
+precise data.
+
+**`GET /api/program-weeks`** — the user's own program history
+(`weekStartDate`, `status`, `evidenceSufficient`), sorted chronologically,
+so a future UI (Package 11) can show gaps honestly. Deliberately read-only:
+it does **not** trigger `syncProgramWeeksThroughToday`, so a user who has
+never called `generate-review` sees an empty list rather than this `GET`
+silently creating rows as a side effect.
+
 ## Test suites
 
 **`test/isolation.test.ts`** — general auth-pipeline proof: an
@@ -1010,6 +1144,38 @@ crisis-language content, which is exactly the class of failure this gate
 exists to prevent. Reverted, typechecked, and the full suite re-run to
 confirm a clean pass (59/59).
 
+**Package 10 adds two more, for the two guarantees its own spec called out
+as needing the most care.** First, the illegal-transition guard in
+`experiment/service.ts`'s `transition()` — the `if
+(!VALID_TRANSITIONS[existing.status].includes(to))` check — was temporarily
+commented out and `test/experiment.test.ts`'s illegal-transitions test was
+re-run alone. It failed immediately: a `declined` experiment could be
+`accept`ed again as if nothing had happened.
+
+```
+✖ illegal transitions are rejected server-side, not just skipped in the happy path
+  AssertionError [ERR_ASSERTION]
+  true !== false
+```
+
+Second — the one this package's own spec flagged as the test "worth being
+most careful about" — the missed-week backfill loop in
+`weeklyReview/programWeek.ts`'s `syncProgramWeeksThroughToday()`
+(`for (let index = 0; index <= currentIndex; index++)`) was temporarily
+narrowed to only ever touch `currentIndex` (i.e. Package 9's old
+jump-straight-to-the-current-week behavior), and the missed-weeks test was
+re-run alone. It failed immediately — for a user who'd been gone 3+ weeks,
+zero missed `ProgramWeek`s were backfilled instead of the expected 3:
+
+```
+✖ a user who skips 2+ weeks gets honest missed ProgramWeek records, not a silent jump to 'current week'
+  AssertionError [ERR_ASSERTION]: weeks 0, 1, and 2 must all be backfilled
+  0 !== 3
+```
+
+Both reverted, typechecked, and the full suite re-run to confirm a clean
+pass (78/78).
+
 ## Known limitations
 
 - **Timeline queries fetch all of a user's observations/inboxEvents, then
@@ -1055,19 +1221,16 @@ confirm a clean pass (59/59).
 - **`GET /api/safety-events` doesn't exist.** `test/extraction.test.ts`
   confirms `SafetyEvent` rows directly via `db` rather than through a
   route, since this package wasn't asked to expose one.
-- **No missed-week recovery logic (Package 9).** `getOrCreateCurrentProgramWeek()`
-  only ever computes and creates the *current* 7-day window from the
-  user's program start date. If a user skips generating a review for
-  several weeks, nothing back-fills or reconciles those skipped
-  `ProgramWeek`s — that's explicitly Package 10's job, not this one's, per
-  this package's own spec.
-- **No `Experiment` entity wired up yet (Package 9/10).** The `experiments`
-  and `experimentCompletionObservations` tables already exist in
-  `packages/db`'s schema, but nothing in this package reads or writes them.
-  `EvidencePacket.priorExperiment` is always `null` — passed through
-  gracefully rather than fabricated, per this package's spec, but it does
-  mean the synthesis prompt currently has no visibility into a prior
-  week's experiment when generating a new review.
+- **Resolved in Package 10**: missed-week recovery logic (flagged here
+  since Package 9) is now closed — `syncProgramWeeksThroughToday()`
+  back-fills every missed `ProgramWeek` as `"skipped"` rather than
+  silently jumping to the current window. See "Experiments and real
+  program-week logic" above.
+- **Resolved in Package 10**: the `Experiment` entity (flagged here since
+  Package 9) is now wired up — `EvidencePacket.priorExperiment` is
+  populated for real when an engaged-with prior experiment exists. See
+  "Experiments and real program-week logic" above for the lifecycle and
+  the `PriorExperiment.status` mapping's own known simplification.
 - **`structuredDetails` has no fixed schema**, so `evidencePacket.ts` reads
   sub-fields like a meal's `approxCalories` or an activity's `intensity`
   opportunistically with a type guard, never fabricating a value that
@@ -1084,3 +1247,27 @@ confirm a clean pass (59/59).
 - **Real synthesis output now reaches actual users.** See `/OPERATIONS.md`
   at the repo root for the rollout gate this package's spec requires before
   onboarding anyone beyond founder solo testing.
+- **No resume-from-paused transition (Package 10).** An experiment can be
+  paused and later retired, but there's no `/resume` route back to
+  `accepted`. Not asked for by this package's spec; a real gap if a future
+  UI wants to let a user un-pause an experiment rather than only retire it.
+- **`target`/`difficulty` are always `null` on a created Experiment
+  (Package 10).** `packages/synthesis-core`'s `SynthesisOutput` (Package 0's
+  rubric-validated shape, unmodified) has no field corresponding to
+  either — see "Experiments and real program-week logic" above for the
+  full mapping decision. Extending the prompt to propose them is a
+  deliberate future decision, not something this package did unasked.
+- **No `GET /api/experiments` or `GET /api/experiments/:id` route.** Every
+  lifecycle route (`/accept`, `/modify`, etc.) returns the resulting
+  Experiment in its response body, which is what `test/experiment.test.ts`
+  relies on — a dedicated list/get route wasn't asked for by this
+  package's spec, so none was added.
+- **Evidence-sufficiency threshold (3 of 7 logged days) is a single global
+  constant**, not tunable per user or adjusted for a user's own typical
+  logging cadence. Derived from eval-harness's fixtures (see "Experiments
+  and real program-week logic" above), not clinically validated.
+- **Backfilled "skipped" weeks don't retroactively affect anything else.**
+  A `ProgramWeek` marked `skipped` doesn't trigger a notification, doesn't
+  adjust `completedWeekNumber` sequencing, and isn't surfaced anywhere but
+  `GET /api/program-weeks` — the UI/UX around "you missed 3 weeks" is
+  Package 11's job, not this one's.

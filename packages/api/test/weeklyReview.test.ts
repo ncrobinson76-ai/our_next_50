@@ -131,11 +131,13 @@ test("confirmed observations populate structured fields; unconfirmed ones never 
     verificationState: "proposed",
   });
 
-  const { packet } = assembleEvidencePacket(programWeek, profile, "2026-01-01", [
-    confirmedWeight,
-    unconfirmedWeight,
-    unconfirmedMeal,
-  ]);
+  const { packet } = assembleEvidencePacket(
+    programWeek,
+    profile,
+    "2026-01-01",
+    [confirmedWeight, unconfirmedWeight, unconfirmedMeal],
+    null
+  );
 
   const day2 = packet.observations.find((o) => o.date === "2026-01-02");
   assert.equal(day2?.weight?.value, 180, "a confirmed weight must populate the structured weight field");
@@ -171,7 +173,13 @@ test("superseded observations are excluded from the packet entirely", () => {
     isSuperseded: true,
   });
 
-  const { packet, includedObservationIds } = assembleEvidencePacket(programWeek, profile, "2026-01-01", [superseded]);
+  const { packet, includedObservationIds } = assembleEvidencePacket(
+    programWeek,
+    profile,
+    "2026-01-01",
+    [superseded],
+    null
+  );
 
   assert.equal(packet.observations.length, 0);
   assert.equal(includedObservationIds.length, 0);

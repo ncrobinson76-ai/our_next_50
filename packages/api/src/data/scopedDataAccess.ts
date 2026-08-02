@@ -2,6 +2,8 @@ import { and, eq, type InferInsertModel, type InferSelectModel } from "drizzle-o
 import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
 import {
   db,
+  experimentCompletionObservations,
+  experiments,
   inboxEvents,
   observations,
   participantProfiles,
@@ -120,6 +122,37 @@ function createWeeklyReviewInputObservationsAccess(userId: string): WeeklyReview
   };
 }
 
+// experimentCompletionObservations is the same shape of problem as
+// weeklyReviewInputObservations above (many-to-many junction, no userId
+// column of its own) — same fix: every method re-derives the scoping
+// guarantee by joining back to experiments.userId.
+export interface ExperimentCompletionObservationsAccess {
+  createLink(experimentId: string, observationId: string): Promise<void>;
+  listObservationIds(experimentId: string): Promise<string[]>;
+}
+
+function createExperimentCompletionObservationsAccess(userId: string): ExperimentCompletionObservationsAccess {
+  return {
+    async createLink(experimentId, observationId) {
+      const [owned] = await db
+        .select({ id: experiments.id })
+        .from(experiments)
+        .where(and(eq(experiments.id, experimentId), eq(experiments.userId, userId)));
+      if (!owned) throw new Error("experimentId does not belong to this user");
+      await db.insert(experimentCompletionObservations).values({ experimentId, observationId });
+    },
+
+    async listObservationIds(experimentId) {
+      const rows = await db
+        .select({ observationId: experimentCompletionObservations.observationId })
+        .from(experimentCompletionObservations)
+        .innerJoin(experiments, eq(experimentCompletionObservations.experimentId, experiments.id))
+        .where(and(eq(experimentCompletionObservations.experimentId, experimentId), eq(experiments.userId, userId)));
+      return rows.map((row) => row.observationId);
+    },
+  };
+}
+
 export interface ScopedDataAccess {
   participantProfiles: ReturnType<typeof createScopedTableAccess<typeof participantProfiles>>;
   inboxEvents: ReturnType<typeof createScopedTableAccess<typeof inboxEvents>>;
@@ -130,6 +163,8 @@ export interface ScopedDataAccess {
   programWeeks: ReturnType<typeof createScopedTableAccess<typeof programWeeks>>;
   weeklyReviews: ReturnType<typeof createScopedTableAccess<typeof weeklyReviews>>;
   weeklyReviewInputObservations: WeeklyReviewInputObservationsAccess;
+  experiments: ReturnType<typeof createScopedTableAccess<typeof experiments>>;
+  experimentCompletionObservations: ExperimentCompletionObservationsAccess;
 }
 
 export function createScopedDataAccess(userId: string): ScopedDataAccess {
@@ -143,5 +178,7 @@ export function createScopedDataAccess(userId: string): ScopedDataAccess {
     programWeeks: createScopedTableAccess(programWeeks, userId),
     weeklyReviews: createScopedTableAccess(weeklyReviews, userId),
     weeklyReviewInputObservations: createWeeklyReviewInputObservationsAccess(userId),
+    experiments: createScopedTableAccess(experiments, userId),
+    experimentCompletionObservations: createExperimentCompletionObservationsAccess(userId),
   };
 }
