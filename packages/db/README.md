@@ -100,8 +100,13 @@ which profile snapshot was active when that review was generated.
 **`inbox_events`** — one row per incoming user interaction (voice, text, or
 form submission today; `channel` is a Postgres enum so new channels can be
 added later without a code change to this table). Tracks a coarse `status`
-lifecycle, a finer free-text `processingState`, and a pointer (not a copy)
-to the raw payload in storage.
+lifecycle and a finer free-text `processingState`. Content lives in one of
+two places depending on the channel: `payload` (jsonb) holds inline content
+small enough to store directly (text/form submissions), while
+`rawPayloadRef` is a pointer (not a copy) to a blob in storage, for channels
+where the content itself is large (e.g. voice's audio file). Every channel
+produces the same top-level column shape — only what's inside `payload`
+varies by channel.
 
 **`source_artifacts`** — metadata about an audio recording or attachment
 tied to an `InboxEvent` (type, size, storage pointer, retention state). Like

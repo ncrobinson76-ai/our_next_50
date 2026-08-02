@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { inboxChannelEnum, inboxStatusEnum } from "./enums";
 import { users } from "./users";
 
@@ -22,8 +22,19 @@ export const inboxEvents = pgTable(
     receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
     processedAt: timestamp("processed_at", { withTimezone: true }),
 
-    // Pointer to the raw payload in object storage — not the payload itself.
-    rawPayloadRef: text("raw_payload_ref").notNull(),
+    // The channel-specific submission content, inline. text/form content is
+    // small enough to live directly here — no object storage needed.
+    // Canonical across channels: only the shape inside this field varies
+    // (e.g. { text: string } vs { weightValue?, hungerLevel?, note? }),
+    // never the InboxEvent's top-level columns (see packages/api's
+    // INB-01 structural-symmetry test).
+    payload: jsonb("payload"),
+
+    // Pointer to a raw payload in object storage, for channels where the
+    // content itself is a blob rather than something that fits in
+    // `payload` — e.g. voice (Package 6), where this will point at the
+    // audio file (see sourceArtifacts). Null for text/form.
+    rawPayloadRef: text("raw_payload_ref"),
 
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

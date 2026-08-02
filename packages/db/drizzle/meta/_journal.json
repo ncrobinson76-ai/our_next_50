@@ -22,6 +22,13 @@
       "when": 1785642368244,
       "tag": "0002_noisy_the_leader",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785646864060,
+      "tag": "0003_boring_dragon_man",
+      "breakpoints": true
     }
   ]
 }
