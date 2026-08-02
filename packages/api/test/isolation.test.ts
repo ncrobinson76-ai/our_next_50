@@ -1,15 +1,16 @@
-// The single most important test in this build so far: proves that one
-// account can never read, modify, or delete another account's data, and
-// that unauthenticated requests to protected routes are rejected outright.
+// General auth-pipeline proof: unauthenticated rejection and the consent
+// gate. Route-specific cross-account isolation (e.g. for the
+// ParticipantProfile routes) lives in its own test file next to the routes
+// it covers — see test/participantProfile.test.ts, which is what Package 3
+// added when it replaced Package 2's placeholder participantProfiles
+// routes with the real onboarding/versioning implementation. Don't assume
+// this file's coverage extends to routes it doesn't exercise; the pattern
+// is "prove it again" per route surface, not "prove it once."
 //
-// Two real users are created directly in the database. Each gets a real,
-// server-established session via POST /api/_test/login-as — a test-only
-// route (routes/testAuth.ts, only mounted when NODE_ENV === "test") that
-// calls req.login() exactly the way the real OIDC callback does. That
-// route is the only test-specific shortcut here: everything downstream of
-// "there's a verified session" (resolveAppUser, requireConsent,
-// attachScopedData, the participantProfiles routes) is the exact
-// production code path. A real browser-driven Replit OIDC login can't be
+// Sessions here are established via POST /api/_test/login-as — a
+// test-only route (routes/testAuth.ts, only mounted when
+// NODE_ENV === "test") that calls req.login() exactly the way the real
+// OIDC callback does. A real browser-driven Replit OIDC login can't be
 // automated in CI, which is why this shortcut exists — see
 // packages/api/README.md for what that means for "definition of done."
 import * as dotenv from "dotenv";
@@ -28,10 +29,7 @@ import { CURRENT_CONSENT_VERSION } from "../src/consent";
 let server: Server;
 let baseUrl: string;
 
-const suffix = Date.now();
-const userA = { authProviderId: `test-isolation-a-${suffix}`, email: `isolation-a-${suffix}@test.local` };
-const userB = { authProviderId: `test-isolation-b-${suffix}`, email: `isolation-b-${suffix}@test.local` };
-
+const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const createdUserIds: string[] = [];
 
 before(async () => {
@@ -40,29 +38,12 @@ before(async () => {
   await new Promise<void>((resolve) => server.once("listening", resolve));
   const address = server.address() as AddressInfo;
   baseUrl = `http://127.0.0.1:${address.port}`;
-
-  // Pre-accept consent for A and B so isolation assertions aren't
-  // entangled with the consent gate (that's covered separately below).
-  for (const u of [userA, userB]) {
-    const inserted = await db
-      .insert(users)
-      .values({
-        email: u.email,
-        authProvider: "replit",
-        authProviderId: u.authProviderId,
-        consentVersion: CURRENT_CONSENT_VERSION,
-        consentAcceptedAt: new Date(),
-      })
-      .returning();
-    createdUserIds.push(inserted[0].id);
-  }
 });
 
 after(async () => {
   await new Promise<void>((resolve, reject) => {
     server.close((err) => (err ? reject(err) : resolve()));
   });
-  // Cascades to any participantProfiles rows these test users created.
   for (const id of createdUserIds) {
     await db.delete(users).where(eq(users.id, id));
   }
@@ -84,63 +65,16 @@ async function loginAs(user: { authProviderId: string; email: string }): Promise
   return extractCookie(res);
 }
 
-const newProfilePayload = {
-  version: 1,
-  startingWeightValue: "180.00",
-  startingWeightUnit: "lb",
-  startingWeightDate: "2026-08-01",
-  goals: [{ type: "weight-loss", description: "isolation test goal" }],
+const validProfilePayload = {
+  dateOfBirth: "1990-01-01",
+  startingWeight: { value: 180, unit: "lb", date: "2026-08-01" },
+  goals: [{ type: "weight-loss", description: "test goal" }],
+  onWeightManagementMedication: false,
 };
 
 test("unauthenticated request to a protected route is rejected", async () => {
-  const res = await fetch(
-    `${baseUrl}/api/participant-profiles/00000000-0000-0000-0000-000000000000`
-  );
+  const res = await fetch(`${baseUrl}/api/participant-profiles/current`);
   assert.equal(res.status, 401);
-});
-
-test("cross-account isolation: B cannot read, update, or delete A's profile", async () => {
-  const cookieA = await loginAs(userA);
-  const cookieB = await loginAs(userB);
-
-  const createRes = await fetch(`${baseUrl}/api/participant-profiles`, {
-    method: "POST",
-    headers: { "content-type": "application/json", cookie: cookieA },
-    body: JSON.stringify(newProfilePayload),
-  });
-  assert.equal(createRes.status, 201, "A should be able to create their own profile");
-  const profile = (await createRes.json()) as { id: string; personalReason: string | null };
-  assert.ok(profile.id);
-
-  const ownReadRes = await fetch(`${baseUrl}/api/participant-profiles/${profile.id}`, {
-    headers: { cookie: cookieA },
-  });
-  assert.equal(ownReadRes.status, 200, "A should be able to read their own profile");
-
-  const crossReadRes = await fetch(`${baseUrl}/api/participant-profiles/${profile.id}`, {
-    headers: { cookie: cookieB },
-  });
-  assert.equal(crossReadRes.status, 404, "B reading A's profile must fail");
-
-  const crossUpdateRes = await fetch(`${baseUrl}/api/participant-profiles/${profile.id}`, {
-    method: "PATCH",
-    headers: { "content-type": "application/json", cookie: cookieB },
-    body: JSON.stringify({ personalReason: "hijacked by B" }),
-  });
-  assert.equal(crossUpdateRes.status, 404, "B updating A's profile must fail");
-
-  const crossDeleteRes = await fetch(`${baseUrl}/api/participant-profiles/${profile.id}`, {
-    method: "DELETE",
-    headers: { cookie: cookieB },
-  });
-  assert.equal(crossDeleteRes.status, 404, "B deleting A's profile must fail");
-
-  const stillThereRes = await fetch(`${baseUrl}/api/participant-profiles/${profile.id}`, {
-    headers: { cookie: cookieA },
-  });
-  assert.equal(stillThereRes.status, 200, "A's profile must be untouched and still readable by A");
-  const stillThere = (await stillThereRes.json()) as { personalReason: string | null };
-  assert.equal(stillThere.personalReason, null, "B's update must not have applied");
 });
 
 test("consent gate blocks other routes until the current version is accepted", async () => {
@@ -160,7 +94,7 @@ test("consent gate blocks other routes until the current version is accepted", a
   const blockedRes = await fetch(`${baseUrl}/api/participant-profiles`, {
     method: "POST",
     headers: { "content-type": "application/json", cookie },
-    body: JSON.stringify(newProfilePayload),
+    body: JSON.stringify(validProfilePayload),
   });
   assert.equal(blockedRes.status, 403, "unconsented user must be blocked from other routes");
 
@@ -174,7 +108,7 @@ test("consent gate blocks other routes until the current version is accepted", a
   const afterAcceptRes = await fetch(`${baseUrl}/api/participant-profiles`, {
     method: "POST",
     headers: { "content-type": "application/json", cookie },
-    body: JSON.stringify(newProfilePayload),
+    body: JSON.stringify(validProfilePayload),
   });
   assert.equal(afterAcceptRes.status, 201, "consented user should be able to proceed");
 

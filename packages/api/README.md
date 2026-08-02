@@ -1,9 +1,16 @@
 # api
 
-Package 2 of "Our Next 50": authentication, session handling, consent
-capture, and server-side row-level authorization. No inbox/synthesis/
-experiment features — this package is entirely about "who is this request
-from, and can they only ever touch their own data."
+Packages 2 and 3 of "Our Next 50".
+
+**Package 2** built authentication, session handling, consent capture, and
+server-side row-level authorization — entirely about "who is this request
+from, and can they only ever touch their own data." No inbox/synthesis/
+experiment features.
+
+**Package 3** built on top of that: the real ParticipantProfile baseline
+onboarding flow (PRD Section 8.2), replacing Package 2's placeholder
+`participantProfiles` CRUD-by-id routes (that package's README explicitly
+flagged them as minimal wiring for "a future package" to properly own).
 
 ## Framework choice
 
@@ -36,7 +43,7 @@ cp .env.example .env
 
 ```bash
 npm run dev     # starts the server (ts-node src/index.ts)
-npm test        # runs the isolation test suite (node's built-in test runner)
+npm test        # runs both test files (node's built-in test runner)
 npm run typecheck
 ```
 
@@ -131,38 +138,87 @@ request or response body, never query strings or headers. This is the
 pattern for every future package's logging; don't add body/query logging
 anywhere without re-reading PRD Section 11 first.
 
-## The isolation test suite (`test/isolation.test.ts`)
+## ParticipantProfile onboarding (`src/routes/participantProfiles.ts`)
 
-The most important test in this build. It creates two real users directly
-in the database, gives each a genuine server-established session (see
-below), and proves:
+PRD Section 8.2's baseline onboarding flow. `src/participantProfile/types.ts`
+lists every field this profile collects — deliberately exhaustive, nothing
+more — and each one carries a one-line comment naming which downstream use
+justifies it (review logic, safety logic, unit handling, or experiment
+selection). `src/participantProfile/validation.ts` hand-validates requests
+against that list with no validation library dependency; anything not on
+the list is silently dropped, never reaches the database, however much
+room `packages/db`'s schema might otherwise have.
 
-1. An unauthenticated request to a protected route gets `401`.
-2. User A creates a real `participantProfiles` row. User B's attempts to
-   **read, update, and delete** that same row all get `404` (not `403` —
-   returning "not found" rather than "forbidden" avoids leaking that the
-   record exists at all). A's row is confirmed untouched afterward.
-3. The consent gate blocks a freshly-created user from other routes until
-   they accept, then lets them through.
+These are **self-service routes**: reading or editing "my profile" takes no
+id parameter at all — everything is derived from `req.appUser` via
+`req.data`. That removes an entire class of cross-account bugs by
+construction, since there's no id in the request for a handler to forget
+to scope. The one route that does take an id (`GET /:id`, for a specific
+historical version) goes through the same scoped `findById` as every other
+package.
 
-**How sessions are established in the test, and why:** a real browser-driven
+- `POST /api/participant-profiles` — create the first version. `409` if a
+  profile already exists (edit via `PATCH` instead). All required fields
+  must be present; no field is silently defaulted (notably
+  `onWeightManagementMedication`, which the DB column defaults to `false`
+  but the API requires explicitly — "unanswered" and "no" aren't the same
+  thing for a field this safety-relevant).
+- `GET /api/participant-profiles/current` — the latest version. `404` if
+  none exists yet.
+- `GET /api/participant-profiles/versions` — every version, oldest first.
+- `GET /api/participant-profiles/:id` — one specific version by its row id.
+- `PATCH /api/participant-profiles/current` — partial edit. The request
+  only needs to carry what's changing; it's merged onto the current
+  version's values, the **merged whole** is re-validated with the same
+  rules as creation (so an edit can never produce a version that's missing
+  a required field), and the result is inserted as
+  `currentVersion + 1` — **never** an update to the existing row. The old
+  version is left exactly as it was and stays queryable by its id or via
+  `/versions`.
+
+## Test suites
+
+**`test/isolation.test.ts`** — general auth-pipeline proof: an
+unauthenticated request to a protected route gets `401`, and the consent
+gate blocks a freshly-created user from other routes (`403`) until they
+accept (`200`), after which they can proceed (`201`).
+
+**`test/participantProfile.test.ts`** — the ParticipantProfile-specific
+proof, covering both the package's functional requirements and its own
+from-scratch cross-account isolation check (Package 2's isolation coverage
+doesn't carry over automatically to routes it never exercised — this is
+the "prove it again" for this route surface):
+
+1. Create only persists Section 8.2 fields — unrelated fields in the
+   request body (e.g. lab results, a photo URL) are silently dropped, not
+   stored or echoed back.
+2. A second `POST` for a user who already has a profile is rejected (`409`).
+3. An incomplete `POST` (missing a required field) is rejected (`400`)
+   rather than silently defaulted.
+4. `GET current` returns exactly what was created.
+5. `PATCH current` creates version 2, the version-1 row is unchanged and
+   still fetchable by id, and both versions appear in `/versions`.
+6. User B cannot read user A's profile by id (`404`).
+7. User B's `PATCH` can only ever affect user B's own current profile — A's
+   version/id are confirmed unchanged afterward.
+
+**How sessions are established in tests, and why:** a real browser-driven
 Replit OIDC login can't be automated in CI — there's no way to script a
-human clicking "Allow" on replit.com. So the test suite uses a test-only
+human clicking "Allow" on replit.com. So both test files use a test-only
 route, `POST /api/_test/login-as` (`routes/testAuth.ts`), which calls
 Passport's `req.login()` directly — the exact same call the real OIDC
 callback makes — to establish a genuine session. That route is **only
 mounted when `NODE_ENV === "test"`** (checked in `app.ts`); it does not
 exist in dev or production. Everything downstream of "there's a verified
-session" (`resolveAppUser`, `requireConsent`, `attachScopedData`, the
-`participantProfiles` routes) is exercised via the real production code
-path — the shortcut is strictly limited to skipping the OIDC handshake
-itself.
+session" (`resolveAppUser`, `requireConsent`, `attachScopedData`, every
+route) is exercised via the real production code path — the shortcut is
+strictly limited to skipping the OIDC handshake itself.
 
-**Proof the suite can actually fail, not just pass:** during development,
-the `userId` filter was temporarily stripped out of
-`scopedDataAccess.ts`'s `findById`/`update`/`remove` (simulating the
-ACC-02 middleware being missing or broken) and the suite was re-run. The
-cross-account test failed immediately and specifically:
+**Proof the isolation checks can actually fail, not just pass (Package 2):**
+during that package's development, the `userId` filter was temporarily
+stripped out of `scopedDataAccess.ts`'s `findById`/`update`/`remove`
+(simulating the ACC-02 middleware being missing or broken) and the suite
+was re-run. The cross-account test failed immediately and specifically:
 
 ```
 ✖ cross-account isolation: B cannot read, update, or delete A's profile
@@ -170,17 +226,20 @@ cross-account test failed immediately and specifically:
   200 !== 404
 ```
 
-The change was then reverted and the suite re-run to confirm a clean pass
-(3/3). No broken state was committed — this was a one-time, throwaway
+The change was then reverted and the suite re-run to confirm a clean pass.
+No broken state was committed — this was a one-time, throwaway
 demonstration that the test is discriminating, not decorative.
 
 ## Known limitations
 
-- **Real OIDC login can only be verified on Replit.** This package's own
-  test suite deliberately doesn't exercise `/api/login`/`/api/callback`
-  (see above) — someone needs to actually log in via a Repl to confirm the
-  end-to-end flow works, per this package's definition of done.
-- **`participantProfiles` routes are minimal, not full versioning.** They
-  exist to give the isolation suite a real table with real data to attack;
-  they don't implement the "each edit creates a new version" behavior
-  described in `packages/db`'s README. That's a future package's job.
+- **Real OIDC login can only be verified on Replit.** The test suites
+  deliberately don't exercise `/api/login`/`/api/callback` (see above) —
+  someone needs to actually log in via a Repl to confirm the end-to-end
+  flow works, per Package 2's definition of done.
+- **No profile deletion route.** PRD Section 8.2 doesn't call for deleting
+  a baseline profile as part of onboarding, so `scopedDataAccess`'s
+  `remove()` capability exists but isn't wired up to any
+  `participantProfiles` route. Package 2's old isolation test exercised a
+  generic `DELETE /:id` on the placeholder routes; that assertion was
+  removed along with the placeholder routes themselves rather than kept
+  alive against a capability that no longer exists.
