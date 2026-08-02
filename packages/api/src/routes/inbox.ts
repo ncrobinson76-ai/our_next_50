@@ -1,18 +1,20 @@
 import express, { Router } from "express";
 import { toInboxEventResponse } from "../inbox/mapping";
 import { parseFormPayload, parseTextPayload } from "../inbox/validation";
+import { runPipeline } from "../inbox/pipeline";
 
-// INB-01: text and form submissions must produce the exact same canonical
-// InboxEvent shape. Both routes below insert through the identical
-// req.data.inboxEvents.create() call, differing only in `channel` and
-// what goes into `payload` — never in a separate code path or a different
-// set of top-level columns. If that ever diverges, it's a bug (see
-// test/inbox.test.ts's structural-symmetry test).
+// INB-01 (Package 4): text and form submissions must produce the exact
+// same canonical InboxEvent shape. The two POST routes below insert
+// through the identical req.data.inboxEvents.create() call, differing
+// only in `channel` and what goes into `payload` — never in a separate
+// code path or a different set of top-level columns. If that ever
+// diverges, it's a bug (see test/inbox.test.ts's structural-symmetry
+// test).
 //
-// This package's responsibility ends at "the raw submission is durably
-// and correctly stored." No extraction into Observations here — that's
-// Package 5's job — so every event is created with status "received" and
-// left alone.
+// Package 5 adds the extraction pipeline (PRD Section 9/10): POST
+// /:id/process and /:id/follow-up-answer, both synchronous — there is no
+// background job queue in this package. A real queue is future
+// infrastructure; see README.md.
 export const inboxRouter = Router();
 
 const DEFAULT_LIST_LIMIT = 20;
@@ -79,4 +81,52 @@ inboxRouter.get("/api/inbox", async (req, res) => {
     limit,
     offset,
   });
+});
+
+inboxRouter.post("/api/inbox/:id/process", async (req, res) => {
+  if (!req.data) {
+    res.status(401).json({ error: "unauthenticated" });
+    return;
+  }
+
+  const event = await req.data.inboxEvents.findById(req.params.id);
+  if (!event) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  if (event.status !== "received") {
+    res.status(409).json({ error: "already_processed", status: event.status });
+    return;
+  }
+
+  const result = await runPipeline(req.data, event);
+  const updated = await req.data.inboxEvents.findById(event.id);
+  res.json({ ...result, inboxEvent: updated ? toInboxEventResponse(updated) : undefined });
+});
+
+inboxRouter.post("/api/inbox/:id/follow-up-answer", express.json(), async (req, res) => {
+  if (!req.data) {
+    res.status(401).json({ error: "unauthenticated" });
+    return;
+  }
+
+  const event = await req.data.inboxEvents.findById(req.params.id);
+  if (!event) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  if (event.status !== "needs_followup") {
+    res.status(409).json({ error: "no_pending_follow_up", status: event.status });
+    return;
+  }
+
+  const answer = req.body?.answer;
+  if (typeof answer !== "string" || answer.trim().length === 0) {
+    res.status(400).json({ error: "validation_failed", errors: ["answer is required and must be a non-empty string"] });
+    return;
+  }
+
+  const result = await runPipeline(req.data, event, answer);
+  const updated = await req.data.inboxEvents.findById(event.id);
+  res.json({ ...result, inboxEvent: updated ? toInboxEventResponse(updated) : undefined });
 });

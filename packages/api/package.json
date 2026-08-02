@@ -1,16 +1,17 @@
 {
   "name": "@our-next-50/api",
   "version": "0.1.0",
-  "description": "Auth, session, consent, and row-level authorization API server (Package 2)",
+  "description": "Auth, consent, row-level authorization, and inbox extraction API server",
   "private": true,
   "type": "commonjs",
   "scripts": {
     "dev": "ts-node src/index.ts",
     "start": "ts-node src/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --require ts-node/register --test test/isolation.test.ts test/participantProfile.test.ts test/inbox.test.ts"
+    "test": "node --require ts-node/register --test test/isolation.test.ts test/participantProfile.test.ts test/inbox.test.ts test/extraction.test.ts test/observations.test.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
     "connect-pg-simple": "^10.0.0",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.45.2",

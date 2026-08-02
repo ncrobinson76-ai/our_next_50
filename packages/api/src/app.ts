@@ -9,6 +9,7 @@ import { healthRouter } from "./routes/health";
 import { consentRouter } from "./routes/consent";
 import { participantProfilesRouter } from "./routes/participantProfiles";
 import { inboxRouter } from "./routes/inbox";
+import { observationsRouter } from "./routes/observations";
 import { testAuthRouter } from "./routes/testAuth";
 
 // Middleware order encodes the whole ACC-01/02/03 story — read top to
@@ -21,7 +22,8 @@ import { testAuthRouter } from "./routes/testAuth";
 //     consented yet)         regardless of consent status)
 //   + current consent     -> requireConsent
 //   + scoped data handle  -> attachScopedData
-//   -> everything else (participantProfilesRouter, inboxRouter, future routers)
+//   -> everything else (participantProfilesRouter, inboxRouter,
+//      observationsRouter, future routers)
 export async function createApp(): Promise<Express> {
   const app = express();
 
@@ -42,6 +44,7 @@ export async function createApp(): Promise<Express> {
 
   app.use(participantProfilesRouter);
   app.use(inboxRouter);
+  app.use(observationsRouter);
 
   app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
     if (res.headersSent) {

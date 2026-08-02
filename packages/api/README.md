@@ -1,6 +1,6 @@
 # api
 
-Packages 2, 3, and 4 of "Our Next 50".
+Packages 2 through 5 of "Our Next 50".
 
 **Package 2** built authentication, session handling, consent capture, and
 server-side row-level authorization — entirely about "who is this request
@@ -14,9 +14,14 @@ flagged them as minimal wiring for "a future package" to properly own).
 
 **Package 4** added inbox ingestion for the text and form channels (INB-01).
 Voice is deliberately deferred to Package 6; extraction into Observations
-is Package 5's job. This package's responsibility ends at "the raw
-submission is durably, correctly, and identically-shaped stored" — see
-below.
+is Package 5's job. That package's responsibility ended at "the raw
+submission is durably, correctly, and identically-shaped stored."
+
+**Package 5** built the extraction pipeline that turns a stored InboxEvent
+into proposed Observations: a per-entry safety screen first (PRD Section
+9), then LLM-based extraction only if not flagged, plus the confirm/
+correct/list routes for a user to act on what was extracted (INB-07). No
+background job queue — see "Inbox extraction pipeline" below.
 
 ## Framework choice
 
@@ -124,10 +129,12 @@ That's what "structurally impossible," not just disciplined, means here.
 `createScopedDataAccess` in `scopedDataAccess.ts`
 (`observations: createScopedTableAccess(observations, userId)`), then use
 `req.data.observations.*` in routes. Do not query that table anywhere else.
-`inboxEvents` (Package 4) followed exactly this pattern — no new access
-method was added, including for `GET /api/inbox`'s pagination, which just
-sorts/slices the result of the existing `list()` in the route handler
-rather than inventing a paginated query method.
+`inboxEvents` (Package 4) and `observations`/`safetyEvents` (Package 5) all
+followed exactly this pattern — no new access method was ever added,
+including for `GET /api/inbox`/`GET /api/observations`'s pagination and
+superseded-filtering, which just sort/slice/filter the result of the
+existing `list()` in the route handler rather than inventing new query
+methods.
 
 ### ACC-03 — consent gate
 
@@ -195,8 +202,9 @@ in `channel` and what's inside `payload` (`src/inbox/types.ts`:
 `{ text: string }` for text, `{ weight?, hungerLevel?, note? }` for form,
 each field individually optional but the form as a whole requiring at
 least one). Every event is created with `status: "received"` and left
-alone — this package does not extract Observations from it; that's
-Package 5's job. Voice (Package 6) is the reason `packages/db`'s
+alone — extraction only happens when `POST /:id/process` is explicitly
+called (see "Inbox extraction pipeline" below). Voice (Package 6) is the
+reason `packages/db`'s
 `inboxEvents.payload`/`rawPayloadRef` split exists at all: text/form
 content is small enough to live inline in `payload`, while a future
 blob-based channel would populate `rawPayloadRef` instead — but the
@@ -212,6 +220,89 @@ InboxEvent row's top-level shape stays identical regardless.
   via `?limit=&offset=` (no new query capability — see the ACC-02 section
   above). This is the first "can I see what I submitted" surface; a real
   Timeline view is a later package.
+
+## Inbox extraction pipeline (`src/inbox/pipeline.ts`) — PRD Section 9/10
+
+`POST /api/inbox/:id/process` turns a stored InboxEvent into proposed
+Observations. **Synchronous, triggered explicitly — no background job
+queue in this package.** A real queue (so processing doesn't block the
+request, and can retry) is future infrastructure; this package proves the
+pipeline logic itself. `409`s if the event isn't in `received` status
+(already processed, or already flagged), so it can never run twice.
+
+The pipeline order is the single most important property here, mirroring
+PRD Section 9 exactly:
+
+1. **Safety screening, first, always** (`src/inbox/safetyScreen.ts`).
+   Ported from `packages/eval-harness/safetyCheck.ts`'s keyword lists —
+   same rule-based approach, adapted from a full week's evidence packet to
+   one InboxEvent's text. Covers `urgent_symptom`, `crisis_language`, and
+   `disordered_eating` (matching `packages/db`'s `safetyPolicyCategoryEnum`
+   naming directly, since this module writes real `SafetyEvent` rows).
+   **Not ported**: eval-harness's rapid-weight-change check — that's a
+   trend detector over multiple weeks' observations, not something that
+   operates on one entry's free text, so it doesn't fit this package's
+   scope by the PRD's own framing. If flagged: a `SafetyEvent` row is
+   written per matched category (category + pathway key + a reference to
+   the InboxEvent — **never** the flagged text itself, per PRD Section 11
+   and this table's design from Package 1), the InboxEvent's status
+   becomes `safety_flagged`, and the pipeline stops — no LLM call is ever
+   made, mirroring the short-circuit pattern already proven in Package 0's
+   `synthesizeWeek()`.
+2. **Extraction, only if not flagged** (`src/inbox/extraction.ts`, same
+   `getClient()`/system-prompt/JSON-parsing shape as
+   `packages/eval-harness/synthesisEngine.ts`, new dependency for this
+   package: `@anthropic-ai/sdk`, explicitly directed by this package's
+   spec). The model extracts zero or more Observations typed against the
+   11 `observationType` values, each with a `confidenceLevel` — a precise
+   stated figure is `measured`, a self-reported/approximate statement is
+   `user_reported`, and nothing inferred is ever marked `measured`. Every
+   written Observation gets `verificationState: "proposed"` regardless of
+   how unambiguous it looked — **nothing in this pipeline ever
+   auto-confirms**; confirming is always a separate user action (INB-07,
+   below). The model may propose **at most one** follow-up question
+   (INB-06), and only when answering it would materially improve safety or
+   interpretation — never to chase precision on a low-value detail.
+3. **Channel-agnostic by construction**: `pipeline.ts`'s only
+   channel-specific code is a small `payloadToText()` adapter (text →
+   `payload.text`; form → a synthesized description of
+   `weight`/`hungerLevel`/`note`) — everything downstream of that (safety
+   screening, extraction, writes) is identical regardless of channel. This
+   is INB-01's payoff from Package 4: the processor really does treat
+   every channel the same.
+4. **Follow-up flow**: if extraction proposes a question, the InboxEvent's
+   status becomes `needs_followup` and the question is stored in
+   `pendingFollowUpQuestion`. `POST /api/inbox/:id/follow-up-answer`
+   accepts `{ answer }`, re-runs the pipeline with the answer folded in as
+   extra context (safety-screened again first — it's new user text), and
+   finalizes to `processed`. The second pass can **never** propose another
+   follow-up: `extractObservations()` discards any `followUpQuestion` the
+   model returns when an answer was supplied, regardless of what the raw
+   model output contains — "at most one, ever" is enforced in code, not
+   left to the prompt alone (see `test/extraction.test.ts`'s direct test
+   of this).
+5. **No follow-up**: Observations are written directly and status becomes
+   `processed`.
+
+## Observation confirmation (`src/routes/observations.ts`) — INB-07
+
+- `POST /api/observations/:id/confirm` — sets `verificationState` to
+  `confirmed`. No new row — confirming doesn't change the value, just
+  trust in it. `409`s on an already-superseded row (confirm the current
+  version instead).
+- `PATCH /api/observations/:id/correct` — the exact versioning idea already
+  proven in Package 3's ParticipantProfile edit flow, applied to a
+  different table: never mutates the old row. Inserts a new row with the
+  corrected value, `verificationState: "confirmed"` (a user's own
+  correction is authoritative), `supersedesObservationId` pointing at the
+  old row, and marks the old row `isSuperseded: true`. `type` can't be
+  changed via a correction (if the type itself was wrong, that's a
+  different kind of edit this endpoint doesn't attempt); `confidenceLevel`
+  defaults to `user_reported` unless explicitly overridden. `409`s on an
+  already-superseded row, same reasoning as confirm.
+- `GET /api/observations` — the caller's own observations, most recent
+  first, excluding superseded rows by default; `?includeSuperseded=true`
+  includes them.
 
 ## Test suites
 
@@ -256,6 +347,42 @@ Package 2/3's coverage doesn't extend to routes they never exercised):
    never appears in B's list, and vice versa), most-recent-first, with
    working `limit`/`offset` pagination.
 
+**`test/extraction.test.ts`** — the pipeline's ordering property directly,
+plus isolation for `/process` and `/follow-up-answer`. The safety-flag
+test doesn't call the LLM (it short-circuits before that point); the
+normal-entry and follow-up tests make real Anthropic API calls, same as
+`packages/eval-harness`.
+
+1. A crisis-language entry produces exactly one `SafetyEvent` (queried
+   directly via `db`, since there's no `GET /api/safety-events` route in
+   this package), the InboxEvent's status becomes `safety_flagged`, and
+   zero `Observation` rows exist for that InboxEvent.
+2. A normal entry produces `Observation`s with `verificationState:
+   "proposed"`, the right `sourceInboxEventId`, and a plausible
+   `confidenceLevel` (a precisely stated weight is asserted `measured`).
+3. Cross-account isolation: B cannot process or answer a follow-up on A's
+   InboxEvent (`404`); A can still process it normally afterward.
+4. **At most one follow-up, ever** — tested by calling
+   `extractObservations()` directly: once without an answer (confirming
+   `followUpQuestion` is a single string or `null`, structurally never a
+   list), then again *with* an answer on the same ambiguous text,
+   asserting `followUpQuestion` is `null` — the code-level enforcement in
+   `extraction.ts`, not a hope about model behavior.
+
+**`test/observations.test.ts`** — INB-07, seeding Observations directly via
+`db` rather than through the pipeline (deterministic, doesn't burn an LLM
+call just to get a row to confirm/correct against):
+
+1. Confirm sets `verificationState` to `confirmed` with no new row.
+2. Correct creates a new row (new id, `verificationState: "confirmed"`,
+   `supersedesObservationId` set, `correctionReason` stored); the old
+   row's `isSuperseded` becomes `true` and its value is unchanged; the
+   default `GET /api/observations` excludes it while
+   `?includeSuperseded=true` includes both.
+3. Correcting an already-superseded row is rejected (`409`).
+4. Cross-account isolation: B cannot confirm, correct, or list A's
+   observations; A's row is confirmed untouched by B's failed attempts.
+
 **How sessions are established in tests, and why:** a real browser-driven
 Replit OIDC login can't be automated in CI — there's no way to script a
 human clicking "Allow" on replit.com. So every test file uses a test-only
@@ -284,6 +411,26 @@ The change was then reverted and the suite re-run to confirm a clean pass.
 No broken state was committed — this was a one-time, throwaway
 demonstration that the test is discriminating, not decorative.
 
+**Same proof for the safety short-circuit (Package 5):** the safety-screen
+check in `pipeline.ts` (`if (screen.flagged)`) was temporarily replaced
+with `if (false && screen.flagged)` and the safety-flag test was re-run
+alone. It failed immediately — with the screen bypassed, the pipeline
+actually ran extraction on crisis-language text and produced
+`needs_followup` instead of short-circuiting to `safety_flagged`:
+
+```
+✖ a safety-flagged entry produces a SafetyEvent, safety_flagged status, and zero Observations
+  AssertionError [ERR_ASSERTION]
+  + actual - expected
+  + 'needs_followup'
+  - 'safety_flagged'
+```
+
+Reverted, typechecked, and the full suite re-run to confirm a clean pass
+(26/26). Same reasoning as Package 2's demonstration: this proves the test
+would actually catch the safety screen being missing or broken, not just
+that it passes today.
+
 ## Known limitations
 
 - **Real OIDC login can only be verified on Replit.** The test suites
@@ -297,3 +444,19 @@ demonstration that the test is discriminating, not decorative.
   generic `DELETE /:id` on the placeholder routes; that assertion was
   removed along with the placeholder routes themselves rather than kept
   alive against a capability that no longer exists.
+- **No background job queue.** `POST /api/inbox/:id/process` runs the
+  entire safety-screen-then-extraction pipeline synchronously inside the
+  request. That's fine for proving the pipeline logic, but a real queue
+  (so a slow LLM call doesn't hold a request open, and so processing can
+  retry on failure) is future infrastructure this package deliberately
+  doesn't build.
+- **Per-entry safety screening doesn't cover rapid weight change.** Only
+  `urgent_symptom`, `crisis_language`, and `disordered_eating` were ported
+  from `eval-harness/safetyCheck.ts` — rapid-weight-change is a trend
+  detector over multiple weeks' observations, not something that operates
+  on one entry's free text, so it doesn't fit this package's "single
+  InboxEvent" scope. Detecting it from a new observation against
+  historical data is a capability nothing has built yet.
+- **`GET /api/safety-events` doesn't exist.** `test/extraction.test.ts`
+  confirms `SafetyEvent` rows directly via `db` rather than through a
+  route, since this package wasn't asked to expose one.
