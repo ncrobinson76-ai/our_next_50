@@ -895,6 +895,135 @@ it does **not** trigger `syncProgramWeeksThroughToday`, so a user who has
 never called `generate-review` sees an empty list rather than this `GET`
 silently creating rows as a side effect.
 
+## Progress, Privacy, Export, and Account Deletion — Package 11
+
+Three read surfaces built entirely from data that already exists (no new
+tables beyond one deletion-flow table, no new AI calls), plus real
+irreversible-action deletion. Still API routes, no frontend framework.
+
+### `GET /api/progress` (`src/progress/service.ts`) — Part A
+
+A factual rollup, deliberately distinct from the synthesis engine: no LLM
+call, no new interpretation. The weight trend specifically reuses
+`weeklyReview/evidencePacket.ts`'s `isTrusted()` (now exported) and
+`packages/synthesis-core`'s `computeWeightTrend()` rather than re-deriving
+a parallel "which observations count as real" rule — the full-program
+series is built the same confirmed-only way a single week's packet is, just
+over every day instead of seven. Program-week reporting surfaces `skipped`
+weeks explicitly (`skippedCount`), not just a total — hiding that would be
+exactly the "track less, learn more" (PRD Section 5) violation this
+package's own spec called out. Experiment history is a per-status tally
+plus the currently-active list; non-scale wins are their own first-class
+count + list, confirmed-only, same trust rule as everything else here.
+Deliberately does **not** call `syncProgramWeeksThroughToday()` — a GET
+never has side effects, same rule `GET /api/program-weeks` already
+established in Package 10.
+
+### `GET /api/privacy/summary` (`src/privacy/service.ts`) — Part B (ACC-04)
+
+Per-entity-type counts across every user-owned table, current consent
+version/date, `SourceArtifact` counts broken out by `retentionState`
+(`active`/`pending_deletion`/`deleted`), and `SafetyEvent` counts **by
+category only** — consistent with Package 2's ACC-05 safe-logging rule.
+This table has no content field to store in the first place (see
+`safetyEvents.ts`), so "category counts, never content" is satisfied by
+construction, not by redacting anything.
+
+### `GET /api/export` (`src/export/service.ts`) — Part C (ACC-04)
+
+A single complete JSON document. `export/service.ts`'s header comment
+cross-checks every table in `packages/db/src/schema/index.ts` and states
+an include/exclude reason for each — `sessions` (connect-pg-simple
+infrastructure) and `auditEvents` (a system security record, not
+user-facing personal data, and not reliably attributable to one user once
+`SET NULL` has run) are the only exclusions; everything else is included.
+Junction tables (`weeklyReviewInputObservations`,
+`experimentCompletionObservations`) aren't exported as flat arrays —
+they're folded into `inputObservationIds`/`completionObservationIds` on
+their parent `weeklyReviews`/`experiments` entries instead, which is more
+useful than a disconnected list of id pairs. `observations` includes
+superseded rows, explicitly marked via the existing `isSuperseded` field —
+export is about completeness, not the "current truth only" view other
+routes show. `transcripts` includes full text: unlike the Privacy Summary
+route, export exists specifically to hand a user everything about
+themselves, so the "content vs. category" minimization Part B applies
+doesn't apply here.
+
+### Account deletion (`src/account/service.ts`, `routes/account.ts`) — Part D (ACC-04)
+
+The highest-stakes part of this package: real, irreversible, two-step
+deletion.
+
+**Two-step confirmation.** `POST /api/account/delete-request` generates a
+32-byte random token, stores only its SHA-256 hash (never the raw value),
+and returns the raw token to the caller exactly once, with a 15-minute
+expiry (`DELETION_TOKEN_TTL_MINUTES`). `POST /api/account/delete-confirm`
+must present that same raw token; it's re-hashed and compared against the
+stored hash with `crypto.timingSafeEqual` (not `===`, to avoid a timing
+side-channel on a token comparison). Only the most recent unexpired
+request for the caller's own account is ever considered valid — both
+routes act exclusively on `req.appUser.id` from the authenticated session,
+**never** a userId taken from the request body, so even a leaked raw token
+only lets its holder delete their own account if they're also
+authenticated as that account; it cannot be replayed against someone
+else's, regardless of who has the token value.
+
+**Deletion order matters.** Object-storage files are deleted *before* the
+`users` row, not after: if a storage delete fails partway through, the
+whole confirm call fails with `storage_deletion_failed` and the DB is left
+completely untouched (retryable), rather than risking a DB-deleted account
+with files it can no longer identify or reach. Only once every retained
+`SourceArtifact`'s file is confirmed removed does `db.delete(users)` run —
+`users` has no `ScopedDataAccess` accessor (it's the scope root, not a
+user-owned table), so this is a direct `db` call, the same established
+exception `middleware/resolveAppUser.ts` already makes for this one table.
+
+**The cascade itself is Postgres's, not application code's** — every
+user-owned table's `ON DELETE CASCADE` (set up per-package since Package
+1) does the actual work once the `users` row goes. `test/
+accountDeletion.test.ts`'s cascade test seeds one row in every major table
+(including a real object-storage file, not a mock) and asserts zero rows
+remain in each, specifically to catch a table whose cascade was set up
+wrong or forgotten — this is not assumed correct just because the schema
+says so.
+
+**SafetyEvents: the deliberate exception, decided explicitly, not
+silently.** This package's spec called out a real tension — "the user's
+data should be fully deletable" vs. "a safety-incident record may need to
+survive for liability/audit reasons" — and explicitly required asking
+rather than picking a side unilaterally. Asked, and the answer was:
+anonymize and retain. `safetyEvents.ts`'s `userId` column now uses
+`ON DELETE SET NULL` instead of `CASCADE` (a new migration,
+`drizzle/0007_black_scarecrow.sql`) — mirroring the exact pattern
+`auditEvents.ts` already used for `actorUserId`/`subjectUserId` before
+this package existed. A `SafetyEvent` row (category + timestamps only —
+this table has never stored flagged content) survives account deletion
+with no link back to the deleted user, rather than being erased. This is
+recorded as a **provisional product decision, not a settled legal one** in
+`/OPERATIONS.md` — the pending attorney review that already gates this
+app's rollout needs to confirm no jurisdiction's record-retention or
+mandatory-reporting rules call for something different before it's
+treated as final.
+
+**"Prove it would fail" demonstration.** The token-match check in
+`confirmDeletion()` was temporarily commented out and the wrong-token test
+re-run alone. It failed immediately — a completely fabricated all-zeros
+token successfully deleted the account:
+
+```
+✖ delete-confirm with the wrong token is rejected and performs no deletion
+  AssertionError [ERR_ASSERTION]
+  200 !== 400
+```
+
+Reverted, typechecked, and the full suite re-run to confirm a clean pass
+(90/90). The SafetyEvent anonymization guarantee itself is enforced by
+Postgres's own `ON DELETE SET NULL` constraint, not application code — its
+correctness is asserted directly in the cascade test
+(`safetyRow.userId === null` after deletion) rather than demonstrated by
+disabling and re-enabling a live schema constraint, which felt like an
+unnecessary risk to take against a real migration for a demo.
+
 ## Test suites
 
 **`test/isolation.test.ts`** — general auth-pipeline proof: an
@@ -1274,7 +1403,28 @@ pass (78/78).
   logging cadence. Derived from eval-harness's fixtures (see "Experiments
   and real program-week logic" above), not clinically validated.
 - **Backfilled "skipped" weeks don't retroactively affect anything else.**
-  A `ProgramWeek` marked `skipped` doesn't trigger a notification, doesn't
-  adjust `completedWeekNumber` sequencing, and isn't surfaced anywhere but
-  `GET /api/program-weeks` — the UI/UX around "you missed 3 weeks" is
-  Package 11's job, not this one's.
+  A `ProgramWeek` marked `skipped` doesn't trigger a notification and
+  doesn't adjust `completedWeekNumber` sequencing. Package 11's Progress
+  view surfaces a `skippedCount` (an honest number), but there's still no
+  dedicated "you missed 3 weeks" messaging/UX — that's a future package's
+  job (there's no frontend framework at all yet), not this one's.
+- **`GET /api/progress`'s weight series has no pagination or date-range
+  filtering (Package 11).** It returns every trusted, deduplicated-per-day
+  weight point across the user's entire program. Fine at this scale (same
+  tradeoff every read-all-then-filter-in-memory route in this package has
+  made since Package 4); would need a real range query before it'd hold up
+  for a user with years of daily logging.
+- **No dedicated retry/resume for a failed `POST /api/account/delete-
+  confirm` (Package 11).** If object-storage deletion fails partway
+  through, the call returns `storage_deletion_failed` and nothing in the
+  DB is touched (so the state is safely retryable), but there's no
+  automatic retry — the caller has to call `delete-confirm` again with a
+  still-valid token, or request a new one if it expired in the meantime.
+- **`Experiment.difficulty`/`target` are still always `null` in export
+  output too (Package 11)** — the export just reflects
+  `toExperimentResponse()`'s existing shape; see the Package 10 note above
+  for why those fields are empty.
+- **SafetyEvent anonymized-retention-on-deletion is provisional, not
+  legally settled (Package 11).** See "Account deletion" above and
+  `/OPERATIONS.md` — this needs explicit confirmation during the pending
+  attorney review, not just an engineering decision.

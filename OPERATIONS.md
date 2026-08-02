@@ -44,7 +44,15 @@ being evaluated" and "a system a real person could read output from."
   happens when a user's entry gets flagged by a crisis-language or
   disordered-eating pathway, and more generally what a user is told (or
   not told) about the limits of an AI-generated weekly review giving
-  health-adjacent guidance.
+  health-adjacent guidance. This review should also confirm SafetyEvent
+  anonymized-retention-on-deletion (Package 11): a user's account
+  deletion anonymizes rather than erases their `SafetyEvent` rows
+  (category + timestamp only, `userId` set to null — mirroring the
+  `auditEvents` pattern already in `packages/db`'s schema). That's a
+  provisional product decision, not a settled legal one — confirm during
+  this review whether any jurisdiction's record-retention or
+  mandatory-reporting requirements call for something different before
+  it's treated as final.
 
 ### Status
 

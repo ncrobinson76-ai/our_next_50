@@ -203,6 +203,20 @@ the row is kept (with a null actor/subject link) rather than removed.
 - **`program_weeks.completedWeekNumber`** is nullable, since it only makes
   sense once a week is actually completed (a `scheduled` week doesn't have
   one yet).
+- **`safety_events.user_id` is nullable with `ON DELETE SET NULL`, not
+  `CASCADE` (Package 11, migration `0007_black_scarecrow.sql`)** —
+  deliberately inconsistent with every other user-owned table's cascade
+  rule, mirroring `audit_events`'s pre-existing `actorUserId`/
+  `subjectUserId` pattern. An explicit product decision (see
+  `packages/api/README.md`'s "Account deletion" section and
+  `/OPERATIONS.md`) so a category+timestamp safety-incident record
+  survives account deletion, anonymized. Provisional pending legal review,
+  not settled.
+- **`account_deletion_requests` (Package 11)**: ephemeral two-step-
+  deletion-confirmation state, not really "user data" in the same sense as
+  everything else in this schema — `userId` is a normal `CASCADE` here
+  (unlike `safety_events` above), since this table has no purpose once the
+  account it refers to is gone.
 - **A known, moderate-severity, dev-only advisory** exists in the latest
   published `drizzle-kit` itself (it depends on a deprecated `@esbuild-kit`
   package with an `esbuild` dev-server advisory). It's a `devDependency`

@@ -1,6 +1,7 @@
 import { and, eq, type InferInsertModel, type InferSelectModel } from "drizzle-orm";
 import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
 import {
+  accountDeletionRequests,
   db,
   experimentCompletionObservations,
   experiments,
@@ -165,6 +166,7 @@ export interface ScopedDataAccess {
   weeklyReviewInputObservations: WeeklyReviewInputObservationsAccess;
   experiments: ReturnType<typeof createScopedTableAccess<typeof experiments>>;
   experimentCompletionObservations: ExperimentCompletionObservationsAccess;
+  accountDeletionRequests: ReturnType<typeof createScopedTableAccess<typeof accountDeletionRequests>>;
 }
 
 export function createScopedDataAccess(userId: string): ScopedDataAccess {
@@ -180,5 +182,6 @@ export function createScopedDataAccess(userId: string): ScopedDataAccess {
     weeklyReviewInputObservations: createWeeklyReviewInputObservationsAccess(userId),
     experiments: createScopedTableAccess(experiments, userId),
     experimentCompletionObservations: createExperimentCompletionObservationsAccess(userId),
+    accountDeletionRequests: createScopedTableAccess(accountDeletionRequests, userId),
   };
 }

@@ -15,6 +15,10 @@ import { timelineRouter } from "./routes/timeline";
 import { programWeeksRouter } from "./routes/programWeeks";
 import { weeklyReviewsRouter } from "./routes/weeklyReviews";
 import { experimentsRouter } from "./routes/experiments";
+import { progressRouter } from "./routes/progress";
+import { privacyRouter } from "./routes/privacy";
+import { exportRouter } from "./routes/export";
+import { accountRouter } from "./routes/account";
 import { testAuthRouter } from "./routes/testAuth";
 
 // Middleware order encodes the whole ACC-01/02/03 story — read top to
@@ -29,7 +33,8 @@ import { testAuthRouter } from "./routes/testAuth";
 //   + scoped data handle  -> attachScopedData
 //   -> everything else (participantProfilesRouter, inboxRouter,
 //      observationsRouter, voiceRouter, timelineRouter, programWeeksRouter,
-//      weeklyReviewsRouter, experimentsRouter, future routers)
+//      weeklyReviewsRouter, experimentsRouter, progressRouter,
+//      privacyRouter, exportRouter, accountRouter, future routers)
 export async function createApp(): Promise<Express> {
   const app = express();
 
@@ -56,6 +61,10 @@ export async function createApp(): Promise<Express> {
   app.use(programWeeksRouter);
   app.use(weeklyReviewsRouter);
   app.use(experimentsRouter);
+  app.use(progressRouter);
+  app.use(privacyRouter);
+  app.use(exportRouter);
+  app.use(accountRouter);
 
   app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
     if (res.headersSent) {

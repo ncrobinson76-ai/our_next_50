@@ -46,11 +46,14 @@ function isWithinWeek(row: ObservationRow, weekStartDate: string, weekEndDate: s
   return row.observedDate >= weekStartDate && row.observedDate <= weekEndDate;
 }
 
-function isTrusted(row: ObservationRow): boolean {
+// Exported so other read paths (e.g. progress/service.ts's weight trend)
+// can reuse the exact same confirmed/proposed trust rule rather than
+// redefining it — see that file for why this matters.
+export function isTrusted(row: ObservationRow): boolean {
   return row.verificationState === "confirmed" || row.verificationState === "corrected";
 }
 
-function asWeightUnit(unit: string | null): "lb" | "kg" {
+export function asWeightUnit(unit: string | null): "lb" | "kg" {
   return unit === "kg" ? "kg" : "lb";
 }
 
