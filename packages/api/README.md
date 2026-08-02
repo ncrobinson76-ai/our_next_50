@@ -1251,12 +1251,19 @@ pass (78/78).
   paused and later retired, but there's no `/resume` route back to
   `accepted`. Not asked for by this package's spec; a real gap if a future
   UI wants to let a user un-pause an experiment rather than only retire it.
-- **`target`/`difficulty` are always `null` on a created Experiment
-  (Package 10).** `packages/synthesis-core`'s `SynthesisOutput` (Package 0's
-  rubric-validated shape, unmodified) has no field corresponding to
-  either — see "Experiments and real program-week logic" above for the
-  full mapping decision. Extending the prompt to propose them is a
-  deliberate future decision, not something this package did unasked.
+- **`Experiment.target` and `Experiment.difficulty` are currently always
+  `null`** — `packages/synthesis-core`'s Package 0 output has no
+  structured field for either, only a prose description. Populating them
+  for real requires extending the rubric-validated synthesis system
+  prompt, which requires re-running the full eval-harness scenario suite
+  to confirm no regression — not done as part of Package 10, since no
+  current UI consumes these fields. Revisit when Package 11 (or later)
+  actually needs them.
+- **`Experiment.rationale <- tentativeHypotheses.join(" ")` is an
+  approximation, not an exact correspondence** — same honesty standard as
+  the `target`/`difficulty` note above. `tentativeHypotheses` explains the
+  observed *pattern* the synthesis noticed; it doesn't necessarily explain
+  why *this specific experiment* was chosen as the response to it.
 - **No `GET /api/experiments` or `GET /api/experiments/:id` route.** Every
   lifecycle route (`/accept`, `/modify`, etc.) returns the resulting
   Experiment in its response body, which is what `test/experiment.test.ts`
