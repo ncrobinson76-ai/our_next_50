@@ -48,6 +48,31 @@ call is made for those.
 `output/` is gitignored since it's regenerated per run; only the code and
 scenario fixtures are committed.
 
+### Running a subset of scenarios
+
+Pass one or more scenario IDs as arguments to run only those:
+
+```bash
+npm run eval -- apparent-plateau urgent-symptom
+```
+
+Each ID must match a filename in `scenarios/` (without `.json`). An unknown
+ID fails immediately with an error listing all valid scenario IDs, rather
+than silently skipping it.
+
+### Comparing multiple runs of the same scenario
+
+By default, re-running a scenario overwrites its `output/{id}.md` file. To
+keep multiple runs around for consistency-checking, pass `--label`:
+
+```bash
+npm run eval -- apparent-plateau --label run2
+```
+
+This writes `output/apparent-plateau.run2.md` instead of overwriting
+`output/apparent-plateau.md`. Omitting `--label` keeps the normal
+overwrite-on-rerun behavior.
+
 To type-check without running anything:
 
 ```bash

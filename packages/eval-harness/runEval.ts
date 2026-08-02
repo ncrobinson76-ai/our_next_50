@@ -16,6 +16,52 @@ function loadScenarios(): ScenarioInput[] {
     .map((file) => JSON.parse(fs.readFileSync(path.join(SCENARIOS_DIR, file), "utf-8")) as ScenarioInput);
 }
 
+interface CliOptions {
+  scenarioIds: string[];
+  label?: string;
+}
+
+function parseArgs(argv: string[]): CliOptions {
+  const scenarioIds: string[] = [];
+  let label: string | undefined;
+
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--label") {
+      const value = argv[i + 1];
+      if (!value) {
+        throw new Error("--label requires a value, e.g. --label run2");
+      }
+      label = value;
+      i++;
+    } else {
+      scenarioIds.push(arg);
+    }
+  }
+
+  return { scenarioIds, label };
+}
+
+function selectScenarios(all: ScenarioInput[], requestedIds: string[]): ScenarioInput[] {
+  if (requestedIds.length === 0) return all;
+
+  const validIds = all.map((s) => s.id);
+  const unknownIds = requestedIds.filter((id) => !validIds.includes(id));
+  if (unknownIds.length > 0) {
+    throw new Error(
+      `Unknown scenario ID(s): ${unknownIds.join(", ")}\n\nValid scenario IDs:\n${validIds
+        .map((id) => `  - ${id}`)
+        .join("\n")}`
+    );
+  }
+
+  return all.filter((s) => requestedIds.includes(s.id));
+}
+
+function outputFilename(scenarioId: string, label?: string): string {
+  return label ? `${scenarioId}.${label}.md` : `${scenarioId}.md`;
+}
+
 function renderList(title: string, items: string[]): string {
   if (items.length === 0) return `### ${title}\n\n_None._\n`;
   return `### ${title}\n\n${items.map((item) => `- ${item}`).join("\n")}\n`;
@@ -58,8 +104,16 @@ function renderMarkdown(scenario: ScenarioInput, result: SynthesisOutput): strin
 async function main(): Promise<void> {
   if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-  const scenarios = loadScenarios();
-  console.log(`Loaded ${scenarios.length} scenarios.`);
+  const { scenarioIds, label } = parseArgs(process.argv.slice(2));
+
+  const allScenarios = loadScenarios();
+  const scenarios = selectScenarios(allScenarios, scenarioIds);
+  console.log(
+    scenarioIds.length === 0
+      ? `Loaded ${scenarios.length} scenarios (all).`
+      : `Loaded ${scenarios.length} of ${allScenarios.length} scenarios (filtered).`
+  );
+  if (label) console.log(`Run label: ${label}`);
 
   let failures = 0;
 
@@ -68,7 +122,7 @@ async function main(): Promise<void> {
     try {
       const result = await synthesizeWeek(scenario);
       const markdown = renderMarkdown(scenario, result);
-      fs.writeFileSync(path.join(OUTPUT_DIR, `${scenario.id}.md`), markdown, "utf-8");
+      fs.writeFileSync(path.join(OUTPUT_DIR, outputFilename(scenario.id, label)), markdown, "utf-8");
       console.log(result.safetyPathwayTriggered ? "safety pathway" : "ok");
     } catch (err) {
       failures++;
@@ -83,4 +137,7 @@ async function main(): Promise<void> {
   if (failures > 0) process.exitCode = 1;
 }
 
-main();
+main().catch((err) => {
+  console.error(err instanceof Error ? err.message : err);
+  process.exitCode = 1;
+});
