@@ -11,6 +11,7 @@ import { participantProfilesRouter } from "./routes/participantProfiles";
 import { inboxRouter } from "./routes/inbox";
 import { observationsRouter } from "./routes/observations";
 import { voiceRouter } from "./routes/voice";
+import { timelineRouter } from "./routes/timeline";
 import { testAuthRouter } from "./routes/testAuth";
 
 // Middleware order encodes the whole ACC-01/02/03 story — read top to
@@ -24,7 +25,7 @@ import { testAuthRouter } from "./routes/testAuth";
 //   + current consent     -> requireConsent
 //   + scoped data handle  -> attachScopedData
 //   -> everything else (participantProfilesRouter, inboxRouter,
-//      observationsRouter, voiceRouter, future routers)
+//      observationsRouter, voiceRouter, timelineRouter, future routers)
 export async function createApp(): Promise<Express> {
   const app = express();
 
@@ -47,6 +48,7 @@ export async function createApp(): Promise<Express> {
   app.use(inboxRouter);
   app.use(observationsRouter);
   app.use(voiceRouter);
+  app.use(timelineRouter);
 
   app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
     if (res.headersSent) {

@@ -1,6 +1,6 @@
 # api
 
-Packages 2 through 6 of "Our Next 50".
+Packages 2 through 7 of "Our Next 50".
 
 **Package 2** built authentication, session handling, consent capture, and
 server-side row-level authorization — entirely about "who is this request
@@ -27,6 +27,11 @@ background job queue — see "Inbox extraction pipeline" below.
 pipeline: upload audio, transcribe it, reduce the transcript to the exact
 same `{ text }` payload shape text already uses, and hand off to the
 **unmodified** `runPipeline()` from Package 5. See "Voice channel" below.
+
+**Package 7** built the Timeline — the read/query layer over Observations,
+plus presenting the confirm/correct routes Package 5 already built as one
+coherent "view → confirm/correct" story. No new write logic. See
+"Timeline" below.
 
 ## Framework choice
 
@@ -146,7 +151,10 @@ pattern — no new access method was ever added, including for
 `GET /api/inbox`/`GET /api/observations`'s pagination and
 superseded-filtering, which just sort/slice/filter the result of the
 existing `list()` in the route handler rather than inventing new query
-methods.
+methods. Package 7's Timeline pushes this further: it needs a join across
+two tables (`observations` and `inboxEvents` for provenance), and still
+adds zero new methods — both `list()`s are called and joined in memory in
+`routes/timeline.ts`.
 
 ### ACC-03 — consent gate
 
@@ -375,7 +383,87 @@ of Package 5's existing outcomes (`safety_flagged` / `needs_followup` /
 `processed`). A full UI for this (progress indicator, retry button) is a
 later package — these are the backend states it will read.
 
-## Observation confirmation (`src/routes/observations.ts`) — INB-07
+## Timeline: view, then confirm/correct (Package 7)
+
+The full story a client builds against is "view what was logged, then act
+on it" — two capabilities that happen to have been built in different
+packages, presented here as one surface. **Nothing in this section is new
+write logic**: `GET /api/observations` (Package 5) still exists for a flat
+list; the routes below are a richer, date-oriented read layer over the
+exact same `observations` rows, joined against `inboxEvents` in memory via
+the existing `req.data.observations.list()`/`req.data.inboxEvents.list()`
+(both already scoped, ACC-02) — no new `scopedDataAccess` method was
+added, same "reuse what exists" pattern every package since Package 4 has
+followed.
+
+### `GET /api/timeline` — view a date range
+
+`?from=&to=` (ISO dates, both inclusive). Defaults to the last 30 days
+ending today if omitted. `400`s if either date is malformed, if `from` is
+after `to`, or if the range exceeds 366 days (`MAX_RANGE_DAYS` in
+`routes/timeline.ts` — a sanity cap, not something asked for explicitly,
+against an unbounded response). `?includeSuperseded=true` works the same
+way it does on `GET /api/observations`.
+
+Response: `{ from, to, days: [...] }`, one entry per **calendar date in
+the requested range, always** — a date with nothing logged still gets an
+entry, with `observations: []`. This is the deliberate choice PRD Section
+8.4 required picking: **"no entry" is represented by an always-present
+day-group with an empty `observations` array, never by omitting the date
+from the response.** A client should never have to compute "which dates
+are missing" by diffing against the range it asked for. Days are ordered
+oldest → newest; observations within a day, oldest → newest by
+`createdAt`.
+
+Each day-group:
+
+```json
+{
+  "date": "2026-07-11",
+  "hasExplicitNonEvent": true,
+  "observations": [ /* TimelineObservationResponse[] */ ]
+}
+```
+
+`hasExplicitNonEvent` is computed from whatever's in that day's
+(filtered) `observations` array — an **explicit, per-date boolean**, not
+something a client has to notice by scanning every row's
+`isExplicitNonEvent` field itself (PRD Section 8.4's requirement). The
+three states Section 8.4 cares about are now each unambiguous from the
+response alone:
+
+| State | `observations` | `hasExplicitNonEvent` |
+| --- | --- | --- |
+| Normal logged observation | `[{ isExplicitNonEvent: false, ... }]` | `false` |
+| Explicit non-event ("didn't work out today") | `[{ isExplicitNonEvent: true, ... }]` | `true` |
+| No entry at all | `[]` | `false` |
+
+`test/timeline.test.ts`'s first test asserts all three side by side from
+one response, specifically so the distinction can't be "broken but each
+case's test still passes in isolation."
+
+### `GET /api/timeline/:date` — full detail for one day
+
+Same day-group shape as above, standalone, for one `YYYY-MM-DD`. `400` on
+a malformed date. **Never `404`** for a valid date with nothing logged —
+that's a legitimate "no entry" state (`observations: []`), not a missing
+resource; `:date` is a filter, not an id.
+
+### Provenance on every observation (`TimelineObservationResponse`)
+
+Every observation returned by either route above carries everything
+`GET /api/observations` already exposes, plus:
+
+- **`channel`**: `"text" | "form" | "voice" | null`, resolved by joining
+  `sourceInboxEventId` against the matching `InboxEvent`. `null` means
+  there's no source `InboxEvent` — which, given how `PATCH
+  /api/observations/:id/correct` writes its new row (see below), reliably
+  means **this row exists because of a direct user correction**, not
+  because of a processed submission.
+- **`isCorrection`**: `supersedesObservationId !== null`, surfaced as its
+  own boolean rather than something a client infers from a raw id field.
+
+### Acting on what you see (Package 5, INB-07 — unchanged, just documented here)
 
 - `POST /api/observations/:id/confirm` — sets `verificationState` to
   `confirmed`. No new row — confirming doesn't change the value, just
@@ -390,10 +478,13 @@ later package — these are the backend states it will read.
   changed via a correction (if the type itself was wrong, that's a
   different kind of edit this endpoint doesn't attempt); `confidenceLevel`
   defaults to `user_reported` unless explicitly overridden. `409`s on an
-  already-superseded row, same reasoning as confirm.
+  already-superseded row, same reasoning as confirm. This row's
+  `sourceInboxEventId` is always `null` — see "Provenance" above for what
+  that implies in the Timeline response.
 - `GET /api/observations` — the caller's own observations, most recent
-  first, excluding superseded rows by default; `?includeSuperseded=true`
-  includes them.
+  first (flat, not date-grouped — `GET /api/timeline` is the date-oriented
+  view of the same data), excluding superseded rows by default;
+  `?includeSuperseded=true` includes them.
 
 ## Test suites
 
@@ -500,6 +591,31 @@ extraction calls:
    (`404`); an upload with no file is rejected (`400`); unauthenticated
    requests to both voice routes are rejected (`401`).
 
+**`test/timeline.test.ts`** — seeds `observations`/`inboxEvents` directly
+via `db` rather than through extraction (this package's own logic is the
+grouping/join/response-shape work, not extraction quality, so there's no
+reason to spend real LLM calls testing it):
+
+1. **The critical one**: a normal observation, an explicit non-event, and
+   a no-entry day, requested together in one `GET /api/timeline` call,
+   asserted distinguishable from each other in that single response —
+   not three separate tests that could each pass while the actual
+   distinction silently broke.
+2. Provenance: `channel` correctly resolves to `"text"`/`"form"`/`"voice"`
+   per the seeded source `InboxEvent`, and `null` for a manually-corrected
+   row with no source event.
+3. Correction lineage: a corrected observation shows `isCorrection: true`
+   and the right `supersedesObservationId`; the default view excludes the
+   superseded original while `?includeSuperseded=true` includes both, and
+   the original's own `isCorrection` is `false`.
+4. Date-range boundaries: observations exactly on `from` and `to` are
+   included; one day before `from` and one day after `to` are not; the
+   response's `days` array covers exactly `[from, ..., to]`.
+5. Default range is 30 days; malformed dates, an inverted range
+   (`from` after `to`), and a malformed `:date` path param are all
+   rejected with `400`.
+6. Cross-account isolation on both routes; unauthenticated rejection.
+
 **How sessions are established in tests, and why:** a real browser-driven
 Replit OIDC login can't be automated in CI — there's no way to script a
 human clicking "Allow" on replit.com. So every test file uses a test-only
@@ -550,6 +666,11 @@ that it passes today.
 
 ## Known limitations
 
+- **Timeline queries fetch all of a user's observations/inboxEvents, then
+  filter/join in memory**, same "reuse `list()`, don't add a new query
+  method" tradeoff every package since Package 4 has made. Fine at this
+  scale; would need real date-range/JOIN queries at the database level
+  before it'd hold up for a user with years of daily logging.
 - **Real OIDC login can only be verified on Replit.** The test suites
   deliberately don't exercise `/api/login`/`/api/callback` (see above) —
   someone needs to actually log in via a Repl to confirm the end-to-end
