@@ -1,0 +1,2 @@
+ALTER TYPE "public"."safety_policy_category" ADD VALUE 'pregnancy_related' BEFORE 'other';--> statement-breakpoint
+ALTER TYPE "public"."safety_policy_category" ADD VALUE 'extreme_restriction' BEFORE 'other';

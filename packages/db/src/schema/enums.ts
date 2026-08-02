@@ -73,6 +73,16 @@ export const safetyPolicyCategoryEnum = pgEnum("safety_policy_category", [
   "crisis_language",
   "disordered_eating",
   "rapid_weight_change",
+  // Package 8 (PRD Section 10's multi-layer design): a weight-management
+  // app giving restriction/exercise-intensity advice to someone who may
+  // be pregnant is a distinct risk, separate from ordinary safety
+  // content.
+  "pregnancy_related",
+  // Package 8: compulsive/rule-bound exercise or caloric restriction,
+  // framed as compulsion rather than eating-disorder-specific language —
+  // kept distinct from disordered_eating on purpose (see
+  // packages/api/src/inbox/safetyScreen.ts).
+  "extreme_restriction",
   "other",
 ]);
 
