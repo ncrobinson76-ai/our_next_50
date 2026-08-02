@@ -29,6 +29,13 @@
       "when": 1785646864060,
       "tag": "0003_boring_dragon_man",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785647616937,
+      "tag": "0004_small_invaders",
+      "breakpoints": true
     }
   ]
 }

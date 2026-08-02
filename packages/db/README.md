@@ -106,7 +106,11 @@ small enough to store directly (text/form submissions), while
 `rawPayloadRef` is a pointer (not a copy) to a blob in storage, for channels
 where the content itself is large (e.g. voice's audio file). Every channel
 produces the same top-level column shape — only what's inside `payload`
-varies by channel.
+varies by channel. `status` includes two pipeline outcomes from Package 5's
+extraction pipeline: `safety_flagged` (a per-entry safety screen matched
+before any extraction happened — see `safety_events`) and `needs_followup`
+(extraction proposed its one allowed follow-up question, held in
+`pendingFollowUpQuestion` until answered).
 
 **`source_artifacts`** — metadata about an audio recording or attachment
 tied to an `InboxEvent` (type, size, storage pointer, retention state). Like

@@ -22,6 +22,12 @@ export const inboxStatusEnum = pgEnum("inbox_status", [
   "processing",
   "processed",
   "failed",
+  // Package 5's extraction pipeline (PRD Section 9/10): a per-entry safety
+  // screen ran first and flagged this event — no extraction happens, ever.
+  "safety_flagged",
+  // Extraction proposed exactly one follow-up question (INB-06) and is
+  // waiting on the user's answer before finalizing.
+  "needs_followup",
 ]);
 
 export const retentionStateEnum = pgEnum("retention_state", [

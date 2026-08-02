@@ -36,6 +36,10 @@ export const inboxEvents = pgTable(
     // audio file (see sourceArtifacts). Null for text/form.
     rawPayloadRef: text("raw_payload_ref"),
 
+    // INB-06/07: set when extraction proposes its one allowed follow-up
+    // question (status becomes "needs_followup"); cleared once answered.
+    pendingFollowUpQuestion: text("pending_follow_up_question"),
+
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
