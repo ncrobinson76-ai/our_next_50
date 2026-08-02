@@ -28,6 +28,11 @@ export const inboxStatusEnum = pgEnum("inbox_status", [
   // Extraction proposed exactly one follow-up question (INB-06) and is
   // waiting on the user's answer before finalizing.
   "needs_followup",
+  // Package 6 (voice): speech-to-text failed. Distinct from "failed" so
+  // "the audio didn't transcribe" is queryable separately from other
+  // failure modes; the audio is retained briefly for retry rather than
+  // deleted (see packages/api's cleanup script).
+  "transcription_failed",
 ]);
 
 export const retentionStateEnum = pgEnum("retention_state", [

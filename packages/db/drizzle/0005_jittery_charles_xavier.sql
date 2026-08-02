@@ -1,0 +1,1 @@
+ALTER TYPE "public"."inbox_status" ADD VALUE 'transcription_failed';

@@ -110,7 +110,10 @@ varies by channel. `status` includes two pipeline outcomes from Package 5's
 extraction pipeline: `safety_flagged` (a per-entry safety screen matched
 before any extraction happened — see `safety_events`) and `needs_followup`
 (extraction proposed its one allowed follow-up question, held in
-`pendingFollowUpQuestion` until answered).
+`pendingFollowUpQuestion` until answered). Package 6 (voice) adds
+`transcription_failed`, distinct from the generic `failed` — see
+`source_artifacts`/`transcripts` below for how a voice entry's audio
+reduces to the same `payload` shape as text once transcribed.
 
 **`source_artifacts`** — metadata about an audio recording or attachment
 tied to an `InboxEvent` (type, size, storage pointer, retention state). Like
