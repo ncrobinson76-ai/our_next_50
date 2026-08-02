@@ -17,15 +17,17 @@ export interface PipelineResult {
 }
 
 // INB-01's payoff: the pipeline doesn't branch on channel beyond this one
-// adapter step. Every channel (including voice, once Package 6 adds a
-// transcript) reduces to a plain text string here, and everything after
-// this point — safety screening, extraction, writes — is identical
+// adapter step. Text and voice (Package 6) both reduce to the identical
+// { text: string } payload shape — voice's payload IS { text: <transcript> }
+// once transcription succeeds (see routes/voice.ts) — so they're handled
+// by the same shape check below, not a per-channel branch. Everything
+// after this point — safety screening, extraction, writes — is identical
 // regardless of where the text came from.
 function payloadToText(channel: string, payload: unknown): string {
   const p = (payload ?? {}) as Record<string, unknown>;
 
-  if (channel === "text") {
-    return typeof p.text === "string" ? p.text : "";
+  if (typeof p.text === "string") {
+    return p.text;
   }
 
   if (channel === "form") {

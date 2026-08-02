@@ -1,6 +1,6 @@
 # api
 
-Packages 2 through 5 of "Our Next 50".
+Packages 2 through 6 of "Our Next 50".
 
 **Package 2** built authentication, session handling, consent capture, and
 server-side row-level authorization — entirely about "who is this request
@@ -22,6 +22,11 @@ into proposed Observations: a per-entry safety screen first (PRD Section
 9), then LLM-based extraction only if not flagged, plus the confirm/
 correct/list routes for a user to act on what was extracted (INB-07). No
 background job queue — see "Inbox extraction pipeline" below.
+
+**Package 6** added the voice channel, extending — not replacing — that
+pipeline: upload audio, transcribe it, reduce the transcript to the exact
+same `{ text }` payload shape text already uses, and hand off to the
+**unmodified** `runPipeline()` from Package 5. See "Voice channel" below.
 
 ## Framework choice
 
@@ -49,6 +54,12 @@ cp .env.example .env
   crash) since there's no real OIDC client to discover against.
 - `ISSUER_URL` — defaults to `https://replit.com/oidc`; you shouldn't need
   to change it.
+- `ANTHROPIC_API_KEY` (and optional `ANTHROPIC_MODEL`) — used by the
+  Package 5 extraction pipeline.
+- `DEEPGRAM_API_KEY` (and optional `DEEPGRAM_MODEL`) — used by the
+  Package 6 voice channel's transcription step. Not needed outside Replit
+  or in tests — `NODE_ENV=test` uses a stubbed transcription path instead
+  (see "Voice channel" below).
 
 ## Run
 
@@ -129,9 +140,10 @@ That's what "structurally impossible," not just disciplined, means here.
 `createScopedDataAccess` in `scopedDataAccess.ts`
 (`observations: createScopedTableAccess(observations, userId)`), then use
 `req.data.observations.*` in routes. Do not query that table anywhere else.
-`inboxEvents` (Package 4) and `observations`/`safetyEvents` (Package 5) all
-followed exactly this pattern — no new access method was ever added,
-including for `GET /api/inbox`/`GET /api/observations`'s pagination and
+`inboxEvents` (Package 4), `observations`/`safetyEvents` (Package 5), and
+`sourceArtifacts`/`transcripts` (Package 6) all followed exactly this
+pattern — no new access method was ever added, including for
+`GET /api/inbox`/`GET /api/observations`'s pagination and
 superseded-filtering, which just sort/slice/filter the result of the
 existing `list()` in the route handler rather than inventing new query
 methods.
@@ -284,6 +296,85 @@ PRD Section 9 exactly:
 5. **No follow-up**: Observations are written directly and status becomes
    `processed`.
 
+## Voice channel (`src/routes/voice.ts`, `src/voice/`)
+
+Extends — does not replace — the pipeline above. `POST /api/inbox/voice`
+does the whole flow synchronously in one request (upload → transcribe →
+the shared pipeline → retention decision): no background job queue here
+either, same as `/process` (see "No background job queue" below).
+
+**The one rule this whole feature is built around:** `pipeline.ts` has
+**zero** voice-specific code. Once transcription succeeds, the
+InboxEvent's `payload` is set to `{ text: <transcript> }` — the *exact*
+shape the text channel already uses — and `payloadToText()` was changed
+from a per-channel `if (channel === "text")` branch to a shape check
+(`if (typeof payload.text === "string")`), so voice is handled by the
+same code path as text without the pipeline needing to know voice exists.
+`test/voice.test.ts`'s parity test proves this: a mocked-transcript
+upload and an equivalent `POST /api/inbox/text` call are asserted to
+reach the same pipeline outcome and produce Observations with an
+identical top-level field set (Package 4's structural-symmetry principle,
+extended to a third channel).
+
+### Storage and transcription provider choices
+
+**Audio storage: Replit's built-in object storage** (`@replit/object-storage`),
+behind an `AudioStorage` interface (`src/voice/storage.ts`) so tests don't
+need live Replit infrastructure — same reasoning as `replitAuth.ts`'s
+`NODE_ENV=test` bypass for the OIDC handshake, and the same situation
+documented in `packages/db/README.md` for Postgres: Replit's storage is
+only reachable from inside a Repl, not from this local dev machine. Tests
+use a local-filesystem stub (`.local-audio-storage/`, gitignored) instead.
+**Never a public URL either way** — every read goes through
+`GET /api/inbox/:id/audio`, which checks ownership via the InboxEvent's
+`userId` (through `req.data`, ACC-02) before storage is ever touched. A
+cross-account request 404s at that check; it never reaches storage.
+
+**Transcription: Deepgram** (`@deepgram/sdk`), chosen over OpenAI's
+Whisper API and Groq specifically for its **configurable zero-retention**
+option, a better structural fit for PRD Section 17/11's instruction to
+weigh and document provider retention behavior than a policy-only "we
+don't train on your data" assurance (OpenAI's approach) or a newer
+product whose retention terms are less established (Groq). Every
+transcription request sets `mip_opt_out: true`, which excludes it from
+Deepgram's Model Improvement Program — data is retained only as long as
+needed to process the request. `src/voice/transcription.ts` uses the
+`nova-3` model by default (override with `DEEPGRAM_MODEL`).
+
+### Audio retention (INB-04)
+
+- **Default**: audio is deleted from storage and the `SourceArtifact`'s
+  `retentionState` becomes `deleted` immediately after the pipeline
+  finishes — regardless of its outcome (`processed`, `safety_flagged`, and
+  `needs_followup` all count as "successfully processed"; the audio has
+  served its purpose once transcribed). Chosen for simplicity now, as the
+  package spec explicitly allowed; PRD Section 8.4's version-history idea
+  doesn't apply to raw audio the same way it does to Observations, so
+  there's no need to wait for a user's confirm/correct action first.
+- **`keep=true`** (a form field on the upload) skips deletion — the
+  `SourceArtifact` stays `active` and the audio remains fetchable via
+  `GET /api/inbox/:id/audio`.
+- **Transcription failure**: the audio is **not** deleted — status becomes
+  `transcription_failed` and the `SourceArtifact` stays `active`, so a
+  retry is possible. It isn't retained forever, though:
+  `scripts/cleanupFailedVoiceUploads.ts` deletes audio still `active` on a
+  `transcription_failed` InboxEvent older than **48 hours**
+  (`EXPIRY_HOURS`, easy to change in that file). Run it manually
+  (`npm run cleanup:voice`) or via a cron entry — a real job scheduler is
+  future infrastructure this package doesn't build (see "No background
+  job queue" below). The script uses `db` directly rather than
+  `req.data`/`scopedDataAccess`, since it's a maintenance job spanning all
+  users by design, not a per-request handler — the boundary that keeps it
+  safe is "only run manually/via cron," not per-user scoping.
+
+### Recording lifecycle (InboxEvent.status, INB-02)
+
+`received` (upload landed) → `processing` (transcription in flight) →
+either `transcription_failed` (distinct from the generic `failed`) or one
+of Package 5's existing outcomes (`safety_flagged` / `needs_followup` /
+`processed`). A full UI for this (progress indicator, retry button) is a
+later package — these are the backend states it will read.
+
 ## Observation confirmation (`src/routes/observations.ts`) — INB-07
 
 - `POST /api/observations/:id/confirm` — sets `verificationState` to
@@ -383,6 +474,32 @@ call just to get a row to confirm/correct against):
 4. Cross-account isolation: B cannot confirm, correct, or list A's
    observations; A's row is confirmed untouched by B's failed attempts.
 
+**`test/voice.test.ts`** — the voice channel, with transcription stubbed
+via a test-only escape hatch in `routes/voice.ts`
+(`mockTranscriptText`/`mockTranscriptFailure` form fields, gated to
+`NODE_ENV === "test"`, same pattern as `/api/_test/login-as`) and audio
+storage using the local-filesystem stub — everything downstream of "we
+have transcript text" is the real code path, including real Anthropic
+extraction calls:
+
+1. **Parity**: a voice upload with a mocked transcript and an equivalent
+   `POST /api/inbox/text` call are asserted to reach the same pipeline
+   outcome, and when both process normally, their Observations have an
+   identical top-level field set (Package 4's structural-symmetry
+   principle, extended to voice) and both extract a `"measured"` weight
+   from the same precisely-stated figure.
+2. Default: audio is deleted (`SourceArtifact.retentionState: "deleted"`,
+   `GET .../audio` → `410`) after successful processing.
+3. `keep=true` prevents deletion; the audio stays fetchable.
+4. A simulated transcription failure sets `transcription_failed` and does
+   **not** delete the audio.
+5. A safety-flagged voice transcript short-circuits exactly like text —
+   `safety_flagged`, one `SafetyEvent`, zero `Observation` rows — reusing
+   Package 5's `runPipeline()` guarantee rather than re-implementing it.
+6. Cross-account isolation: B cannot fetch A's audio by its InboxEvent id
+   (`404`); an upload with no file is rejected (`400`); unauthenticated
+   requests to both voice routes are rejected (`401`).
+
 **How sessions are established in tests, and why:** a real browser-driven
 Replit OIDC login can't be automated in CI — there's no way to script a
 human clicking "Allow" on replit.com. So every test file uses a test-only
@@ -444,12 +561,24 @@ that it passes today.
   generic `DELETE /:id` on the placeholder routes; that assertion was
   removed along with the placeholder routes themselves rather than kept
   alive against a capability that no longer exists.
-- **No background job queue.** `POST /api/inbox/:id/process` runs the
-  entire safety-screen-then-extraction pipeline synchronously inside the
-  request. That's fine for proving the pipeline logic, but a real queue
-  (so a slow LLM call doesn't hold a request open, and so processing can
-  retry on failure) is future infrastructure this package deliberately
-  doesn't build.
+- **No background job queue.** `POST /api/inbox/:id/process` and
+  `POST /api/inbox/voice` (Package 6 — upload, transcription, the shared
+  pipeline, and the retention decision, all in one request) run entirely
+  synchronously. That's fine for proving the pipeline logic, but a real
+  queue (so a slow LLM/transcription call doesn't hold a request open, and
+  so processing can retry on failure) is future infrastructure this
+  package deliberately doesn't build. The closest thing to retry
+  infrastructure right now is `scripts/cleanupFailedVoiceUploads.ts`,
+  which is a manual/cron script, not a queue — see "Voice channel" above.
+- **No retry route for `transcription_failed`.** The audio is retained for
+  48 hours specifically to allow a retry, but nothing implements one yet —
+  a future package would add something like
+  `POST /api/inbox/:id/retry-transcription`.
+- **`@replit/object-storage`'s own dependency tree has an unfixed moderate
+  `uuid` advisory** (`GHSA-w5hq-g745-h8pq`, via
+  `@google-cloud/storage` → `teeny-request`/`gaxios` → `uuid`, "no fix
+  available" per `npm audit`). Not something fixable from this package —
+  it's Replit's SDK's own transitive dependency choice.
 - **Per-entry safety screening (`packages/api/src/inbox/safetyScreen.ts`)
   does not detect rapid weight change**, since that requires a trend
   across multiple observations, not a single entry's text — it's

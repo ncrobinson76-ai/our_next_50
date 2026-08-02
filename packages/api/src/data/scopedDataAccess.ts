@@ -1,6 +1,6 @@
 import { and, eq, type InferInsertModel, type InferSelectModel } from "drizzle-orm";
 import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
-import { db, inboxEvents, observations, participantProfiles, safetyEvents } from "../db";
+import { db, inboxEvents, observations, participantProfiles, safetyEvents, sourceArtifacts, transcripts } from "../db";
 
 // ACC-02, the core pattern: every user-owned table (anything with a
 // userId column — observations, inboxEvents, participantProfiles, and
@@ -76,6 +76,8 @@ export interface ScopedDataAccess {
   inboxEvents: ReturnType<typeof createScopedTableAccess<typeof inboxEvents>>;
   observations: ReturnType<typeof createScopedTableAccess<typeof observations>>;
   safetyEvents: ReturnType<typeof createScopedTableAccess<typeof safetyEvents>>;
+  sourceArtifacts: ReturnType<typeof createScopedTableAccess<typeof sourceArtifacts>>;
+  transcripts: ReturnType<typeof createScopedTableAccess<typeof transcripts>>;
 }
 
 export function createScopedDataAccess(userId: string): ScopedDataAccess {
@@ -84,5 +86,7 @@ export function createScopedDataAccess(userId: string): ScopedDataAccess {
     inboxEvents: createScopedTableAccess(inboxEvents, userId),
     observations: createScopedTableAccess(observations, userId),
     safetyEvents: createScopedTableAccess(safetyEvents, userId),
+    sourceArtifacts: createScopedTableAccess(sourceArtifacts, userId),
+    transcripts: createScopedTableAccess(transcripts, userId),
   };
 }
