@@ -1,0 +1,44 @@
+{
+  "id": "modest-progress-strong-adherence",
+  "baseline": {
+    "userId": "eval-modest-progress-strong-adherence",
+    "startDate": "2026-05-01",
+    "startingWeight": { "value": 184.2, "unit": "lb", "date": "2026-05-01", "timeOfDay": "morning" },
+    "height": { "value": 66, "unit": "in" },
+    "age": 41,
+    "sex": "female",
+    "goal": {
+      "type": "weight-loss",
+      "description": "Lose weight gradually and build sustainable habits",
+      "targetWeight": { "value": 165, "unit": "lb" }
+    },
+    "activityBaseline": "Walked 2-3x/week before starting, no structured exercise",
+    "dietaryPattern": "Three meals a day, occasional snack, no dietary restrictions",
+    "notes": "Averaged about 1.2 lb/week loss since program start."
+  },
+  "observations": [
+    { "date": "2026-07-13", "weight": { "value": 183.4, "unit": "lb", "date": "2026-07-13", "timeOfDay": "morning" }, "sleep": { "hours": 7.3, "quality": "good" }, "meals": [{ "time": "7:30am", "description": "Greek yogurt with berries and granola", "approxCalories": 320 }, { "time": "12:30pm", "description": "Turkey and avocado wrap, side salad", "approxCalories": 540 }, { "time": "6:30pm", "description": "Grilled chicken, roasted broccoli, brown rice", "approxCalories": 610 }], "hunger": [{ "level": 4, "context": "mid-morning" }, { "level": 5, "context": "before dinner" }], "activity": [{ "type": "walk", "durationMinutes": 35, "intensity": "moderate" }], "freeTextNotes": "Good day, felt steady." },
+    { "date": "2026-07-14", "weight": { "value": 183.2, "unit": "lb", "date": "2026-07-14", "timeOfDay": "morning" }, "sleep": { "hours": 7.0, "quality": "good" }, "meals": [{ "time": "7:45am", "description": "Two eggs, whole wheat toast", "approxCalories": 350 }, { "time": "1:00pm", "description": "Lentil soup and bread", "approxCalories": 480 }, { "time": "7:00pm", "description": "Salmon, quinoa, green beans", "approxCalories": 590 }], "hunger": [{ "level": 5, "context": "afternoon" }], "activity": [{ "type": "walk", "durationMinutes": 30, "intensity": "moderate" }], "freeTextNotes": "" },
+    { "date": "2026-07-15", "weight": { "value": 183.0, "unit": "lb", "date": "2026-07-15", "timeOfDay": "morning" }, "sleep": { "hours": 6.8, "quality": "fair" }, "meals": [{ "time": "8:00am", "description": "Protein smoothie", "approxCalories": 300 }, { "time": "12:45pm", "description": "Chicken salad", "approxCalories": 500 }, { "time": "6:45pm", "description": "Stir-fry vegetables and tofu", "approxCalories": 550 }], "hunger": [{ "level": 6, "context": "late afternoon" }], "activity": [{ "type": "strength training", "durationMinutes": 40, "intensity": "moderate" }], "freeTextNotes": "Gym day, felt a bit more hungry after." },
+    { "date": "2026-07-16", "weight": { "value": 182.9, "unit": "lb", "date": "2026-07-16", "timeOfDay": "morning" }, "sleep": { "hours": 7.5, "quality": "good" }, "meals": [{ "time": "7:30am", "description": "Oatmeal with peanut butter", "approxCalories": 380 }, { "time": "12:30pm", "description": "Turkey chili", "approxCalories": 520 }, { "time": "6:30pm", "description": "Grilled shrimp tacos", "approxCalories": 560 }], "hunger": [{ "level": 4, "context": "mid-morning" }], "activity": [{ "type": "walk", "durationMinutes": 25, "intensity": "moderate" }], "freeTextNotes": "" },
+    { "date": "2026-07-17", "weight": { "value": 182.7, "unit": "lb", "date": "2026-07-17", "timeOfDay": "morning" }, "sleep": { "hours": 7.1, "quality": "good" }, "meals": [{ "time": "8:15am", "description": "Greek yogurt with berries", "approxCalories": 300 }, { "time": "1:15pm", "description": "Veggie burger, side salad", "approxCalories": 500 }, { "time": "7:15pm", "description": "Baked cod, sweet potato, asparagus", "approxCalories": 580 }], "hunger": [{ "level": 5, "context": "afternoon" }], "activity": [{ "type": "walk", "durationMinutes": 30, "intensity": "moderate" }], "freeTextNotes": "Felt good, energy steady all day." },
+    { "date": "2026-07-18", "weight": { "value": 182.6, "unit": "lb", "date": "2026-07-18", "timeOfDay": "morning" }, "sleep": { "hours": 7.6, "quality": "good" }, "meals": [{ "time": "9:00am", "description": "Omelet with spinach and cheese", "approxCalories": 400 }, { "time": "2:00pm", "description": "Grilled chicken sandwich", "approxCalories": 550 }, { "time": "7:30pm", "description": "Pizza with friends, two slices", "approxCalories": 620 }], "hunger": [{ "level": 5, "context": "evening, social setting" }], "activity": [], "freeTextNotes": "Weekend dinner out, enjoyed it without overdoing it." },
+    { "date": "2026-07-19", "weight": { "value": 182.6, "unit": "lb", "date": "2026-07-19", "timeOfDay": "morning" }, "sleep": { "hours": 8.0, "quality": "good" }, "meals": [{ "time": "9:30am", "description": "Whole grain pancakes with fruit", "approxCalories": 420 }, { "time": "2:30pm", "description": "Grain bowl with chickpeas", "approxCalories": 500 }, { "time": "7:00pm", "description": "Roast chicken, roasted vegetables", "approxCalories": 560 }], "hunger": [{ "level": 4, "context": "afternoon" }], "activity": [{ "type": "walk", "durationMinutes": 40, "intensity": "moderate" }], "freeTextNotes": "Relaxed Sunday, felt in control all week." }
+  ],
+  "weeklyReflection": {
+    "weekStartDate": "2026-07-13",
+    "weekEndDate": "2026-07-19",
+    "reflectionText": "This was a solid week. I stuck to the protein-at-breakfast habit almost every day and noticed I wasn't as hungry before lunch. Weight came down a little and steadily, nothing dramatic. Slept well most nights. Felt in control the whole week, even at the pizza dinner and eating out on Sunday.",
+    "selfReportedAdherence": "high",
+    "selfReportedMood": "encouraged",
+    "moodTags": ["motivated", "steady", "in control"]
+  },
+  "priorExperiment": {
+    "description": "Add roughly 20g of protein at breakfast most days (eggs, Greek yogurt, or a protein smoothie)",
+    "hypothesis": "Protein at breakfast may reduce mid-morning hunger and snacking",
+    "startDate": "2026-07-06",
+    "status": "completed",
+    "outcomeNotes": "Followed on 6 of 7 days; reported less hunger before lunch on days it was followed."
+  },
+  "medicationContext": null
+}

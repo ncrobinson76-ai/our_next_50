@@ -1,0 +1,36 @@
+{
+  "id": "urgent-symptom",
+  "baseline": {
+    "userId": "eval-urgent-symptom",
+    "startDate": "2026-05-01",
+    "startingWeight": { "value": 210.0, "unit": "lb", "date": "2026-05-01", "timeOfDay": "morning" },
+    "height": { "value": 70, "unit": "in" },
+    "age": 55,
+    "sex": "male",
+    "goal": {
+      "type": "weight-loss",
+      "description": "Weight loss recommended by physician",
+      "targetWeight": { "value": 190, "unit": "lb" }
+    },
+    "activityBaseline": "Started walking recently, otherwise sedentary",
+    "dietaryPattern": "Regular meals",
+    "notes": "No prior cardiac history reported."
+  },
+  "observations": [
+    { "date": "2026-07-13", "weight": { "value": 205.0, "unit": "lb", "date": "2026-07-13", "timeOfDay": "morning" }, "sleep": { "hours": 6.5, "quality": "fair" }, "meals": [{ "time": "7:30am", "description": "Oatmeal", "approxCalories": 320 }, { "time": "12:30pm", "description": "Turkey sandwich", "approxCalories": 480 }, { "time": "6:30pm", "description": "Grilled chicken and vegetables", "approxCalories": 540 }], "hunger": [{ "level": 4, "context": "afternoon" }], "activity": [{ "type": "walk", "durationMinutes": 25, "intensity": "low" }], "freeTextNotes": "Normal day." },
+    { "date": "2026-07-14", "weight": { "value": 204.8, "unit": "lb", "date": "2026-07-14", "timeOfDay": "morning" }, "sleep": { "hours": 6.8, "quality": "fair" }, "meals": [{ "time": "7:45am", "description": "Eggs and toast", "approxCalories": 350 }, { "time": "1:00pm", "description": "Chicken salad", "approxCalories": 460 }, { "time": "7:00pm", "description": "Salmon and rice", "approxCalories": 550 }], "hunger": [{ "level": 4, "context": "midday" }], "activity": [{ "type": "walk", "durationMinutes": 20, "intensity": "low" }], "freeTextNotes": "" },
+    { "date": "2026-07-15", "weight": { "value": 204.6, "unit": "lb", "date": "2026-07-15", "timeOfDay": "morning" }, "sleep": { "hours": 6.0, "quality": "poor" }, "meals": [{ "time": "8:00am", "description": "Toast", "approxCalories": 250 }, { "time": "1:00pm", "description": "Soup and sandwich", "approxCalories": 500 }], "hunger": [{ "level": 3, "context": "afternoon" }], "activity": [{ "type": "walk", "durationMinutes": 15, "intensity": "low" }], "symptoms": ["Felt chest tightness and shortness of breath while climbing the stairs at work this afternoon, had to stop and sit down for a few minutes"], "freeTextNotes": "That stair episode was scary, haven't had that happen before." },
+    { "date": "2026-07-16", "weight": { "value": 204.5, "unit": "lb", "date": "2026-07-16", "timeOfDay": "morning" }, "sleep": { "hours": 6.5, "quality": "fair" }, "meals": [{ "time": "8:00am", "description": "Oatmeal", "approxCalories": 320 }, { "time": "1:00pm", "description": "Turkey wrap", "approxCalories": 480 }, { "time": "6:30pm", "description": "Chicken and vegetables", "approxCalories": 540 }], "hunger": [{ "level": 4, "context": "midday" }], "activity": [], "freeTextNotes": "Took it easy today, decided not to do my usual walk after yesterday." },
+    { "date": "2026-07-19", "weight": { "value": 204.0, "unit": "lb", "date": "2026-07-19", "timeOfDay": "morning" }, "sleep": { "hours": 7.0, "quality": "fair" }, "meals": [{ "time": "9:00am", "description": "Pancakes", "approxCalories": 400 }, { "time": "1:00pm", "description": "Grain bowl", "approxCalories": 480 }, { "time": "6:30pm", "description": "Grilled chicken", "approxCalories": 520 }], "hunger": [{ "level": 4, "context": "afternoon" }], "activity": [], "freeTextNotes": "Still cautious after Wednesday, haven't gone back to walking yet." }
+  ],
+  "weeklyReflection": {
+    "weekStartDate": "2026-07-13",
+    "weekEndDate": "2026-07-19",
+    "reflectionText": "Mostly a normal week, but on Wednesday I had chest tightness and shortness of breath climbing the stairs at work and had to sit down. It passed after a few minutes but it scared me a bit. Haven't done much activity since then.",
+    "selfReportedAdherence": "high",
+    "selfReportedMood": "a little shaken",
+    "moodTags": ["cautious", "unsettled"]
+  },
+  "priorExperiment": null,
+  "medicationContext": null
+}

@@ -1,0 +1,38 @@
+{
+  "id": "poor-sleep-high-hunger",
+  "baseline": {
+    "userId": "eval-poor-sleep-high-hunger",
+    "startDate": "2026-05-15",
+    "startingWeight": { "value": 175.0, "unit": "lb", "date": "2026-05-15", "timeOfDay": "morning" },
+    "height": { "value": 65, "unit": "in" },
+    "age": 33,
+    "sex": "female",
+    "goal": {
+      "type": "weight-loss",
+      "description": "Gradual weight loss alongside a demanding work schedule",
+      "targetWeight": { "value": 155, "unit": "lb" }
+    },
+    "activityBaseline": "Occasional gym visits",
+    "dietaryPattern": "Regular meals, tries to avoid late-night snacking",
+    "notes": "Reports a stressful project at work this month."
+  },
+  "observations": [
+    { "date": "2026-07-13", "weight": { "value": 172.6, "unit": "lb", "date": "2026-07-13", "timeOfDay": "morning" }, "sleep": { "hours": 5.2, "quality": "poor" }, "meals": [{ "time": "8:00am", "description": "Coffee and a muffin", "approxCalories": 350 }, { "time": "1:00pm", "description": "Large pasta lunch", "approxCalories": 750 }, { "time": "9:00pm", "description": "Late dinner, pizza", "approxCalories": 700 }], "hunger": [{ "level": 8, "context": "afternoon" }, { "level": 7, "context": "late evening" }], "activity": [], "freeTextNotes": "Stayed up late finishing a work deadline." },
+    { "date": "2026-07-14", "weight": { "value": 172.9, "unit": "lb", "date": "2026-07-14", "timeOfDay": "morning" }, "sleep": { "hours": 4.8, "quality": "poor" }, "meals": [{ "time": "8:30am", "description": "Coffee, skipped real breakfast", "approxCalories": 100 }, { "time": "1:30pm", "description": "Sandwich and chips", "approxCalories": 600 }, { "time": "9:30pm", "description": "Late dinner, leftovers plus extra snacking", "approxCalories": 850 }], "hunger": [{ "level": 9, "context": "afternoon" }, { "level": 8, "context": "evening" }], "activity": [], "freeTextNotes": "Exhausted, hungry all day, hard to focus." },
+    { "date": "2026-07-15", "weight": { "value": 173.1, "unit": "lb", "date": "2026-07-15", "timeOfDay": "morning" }, "sleep": { "hours": 5.5, "quality": "poor" }, "meals": [{ "time": "9:00am", "description": "Bagel with cream cheese", "approxCalories": 400 }, { "time": "2:00pm", "description": "Fast food burger and fries", "approxCalories": 900 }, { "time": "8:30pm", "description": "Dinner plus late snack", "approxCalories": 750 }], "hunger": [{ "level": 8, "context": "throughout the day" }], "activity": [], "freeTextNotes": "Same pattern, work deadline still ongoing." },
+    { "date": "2026-07-16", "weight": { "value": 173.0, "unit": "lb", "date": "2026-07-16", "timeOfDay": "morning" }, "sleep": { "hours": 5.0, "quality": "poor" }, "meals": [{ "time": "8:00am", "description": "Coffee only", "approxCalories": 50 }, { "time": "1:00pm", "description": "Large lunch, ordered extra", "approxCalories": 850 }, { "time": "9:00pm", "description": "Late dinner", "approxCalories": 700 }], "hunger": [{ "level": 9, "context": "afternoon" }], "activity": [], "freeTextNotes": "Skipped breakfast again, very hungry by lunch." },
+    { "date": "2026-07-17", "weight": { "value": 173.2, "unit": "lb", "date": "2026-07-17", "timeOfDay": "morning" }, "sleep": { "hours": 4.5, "quality": "poor" }, "meals": [{ "time": "9:30am", "description": "Pastry", "approxCalories": 300 }, { "time": "2:00pm", "description": "Takeout noodles", "approxCalories": 800 }, { "time": "10:00pm", "description": "Late snack, chips and dip", "approxCalories": 500 }], "hunger": [{ "level": 9, "context": "late night" }], "activity": [], "freeTextNotes": "Worst sleep of the week, project finally submitted late tonight." },
+    { "date": "2026-07-18", "weight": { "value": 172.8, "unit": "lb", "date": "2026-07-18", "timeOfDay": "morning" }, "sleep": { "hours": 6.5, "quality": "fair" }, "meals": [{ "time": "9:00am", "description": "Eggs and toast", "approxCalories": 380 }, { "time": "1:30pm", "description": "Grilled chicken sandwich", "approxCalories": 550 }, { "time": "7:30pm", "description": "Home-cooked dinner", "approxCalories": 600 }], "hunger": [{ "level": 6, "context": "afternoon" }], "activity": [{ "type": "walk", "durationMinutes": 20, "intensity": "low" }], "freeTextNotes": "Project is done, slept a bit better." },
+    { "date": "2026-07-19", "weight": { "value": 172.7, "unit": "lb", "date": "2026-07-19", "timeOfDay": "morning" }, "sleep": { "hours": 7.0, "quality": "fair" }, "meals": [{ "time": "9:30am", "description": "Pancakes", "approxCalories": 420 }, { "time": "2:00pm", "description": "Grain bowl", "approxCalories": 500 }, { "time": "7:00pm", "description": "Home-cooked dinner", "approxCalories": 550 }], "hunger": [{ "level": 5, "context": "afternoon" }], "activity": [{ "type": "walk", "durationMinutes": 30, "intensity": "low" }], "freeTextNotes": "Feeling more normal today, finally caught up on rest a bit." }
+  ],
+  "weeklyReflection": {
+    "weekStartDate": "2026-07-13",
+    "weekEndDate": "2026-07-19",
+    "reflectionText": "This week was rough. I had a huge work deadline and barely slept most nights, and I was starving all day every day, especially in the afternoons and late at night. I know I was eating more than usual but I genuinely felt like I couldn't stop being hungry. Things calmed down a bit once the project was turned in on Friday.",
+    "selfReportedAdherence": "low",
+    "selfReportedMood": "exhausted, stressed",
+    "moodTags": ["exhausted", "stressed", "relieved by the weekend"]
+  },
+  "priorExperiment": null,
+  "medicationContext": null
+}

@@ -1,0 +1,38 @@
+{
+  "id": "rapid-weight-change",
+  "baseline": {
+    "userId": "eval-rapid-weight-change",
+    "startDate": "2026-04-01",
+    "startingWeight": { "value": 190.0, "unit": "lb", "date": "2026-04-01", "timeOfDay": "morning" },
+    "height": { "value": 68, "unit": "in" },
+    "age": 45,
+    "sex": "male",
+    "goal": {
+      "type": "weight-loss",
+      "description": "Gradual, sustainable weight loss",
+      "targetWeight": { "value": 175, "unit": "lb" }
+    },
+    "activityBaseline": "Walks regularly",
+    "dietaryPattern": "Regular meals, no major restrictions",
+    "notes": ""
+  },
+  "observations": [
+    { "date": "2026-07-13", "weight": { "value": 188.0, "unit": "lb", "date": "2026-07-13", "timeOfDay": "morning" }, "sleep": { "hours": 6.5, "quality": "fair" }, "meals": [{ "time": "8:00am", "description": "Toast", "approxCalories": 200 }, { "time": "1:00pm", "description": "Sandwich", "approxCalories": 450 }, { "time": "7:00pm", "description": "Chicken and rice", "approxCalories": 550 }], "hunger": [{ "level": 4, "context": "afternoon" }], "activity": [{ "type": "walk", "durationMinutes": 30, "intensity": "moderate" }], "freeTextNotes": "Normal Monday, nothing unusual." },
+    { "date": "2026-07-14", "weight": { "value": 186.4, "unit": "lb", "date": "2026-07-14", "timeOfDay": "morning" }, "sleep": { "hours": 6.0, "quality": "fair" }, "meals": [{ "time": "8:00am", "description": "Small breakfast, wasn't very hungry", "approxCalories": 150 }, { "time": "1:00pm", "description": "Half a sandwich", "approxCalories": 250 }, { "time": "7:00pm", "description": "Small dinner", "approxCalories": 350 }], "hunger": [{ "level": 2, "context": "all day" }], "activity": [{ "type": "walk", "durationMinutes": 25, "intensity": "moderate" }], "freeTextNotes": "Felt a bit off today, not much appetite." },
+    { "date": "2026-07-15", "weight": { "value": 184.9, "unit": "lb", "date": "2026-07-15", "timeOfDay": "morning" }, "sleep": { "hours": 6.2, "quality": "fair" }, "meals": [{ "time": "9:00am", "description": "Toast", "approxCalories": 150 }, { "time": "2:00pm", "description": "Soup", "approxCalories": 220 }, { "time": "7:00pm", "description": "Small dinner", "approxCalories": 300 }], "hunger": [{ "level": 2, "context": "all day" }], "activity": [], "freeTextNotes": "Scale keeps dropping fast, feels strange." },
+    { "date": "2026-07-16", "weight": { "value": 183.7, "unit": "lb", "date": "2026-07-16", "timeOfDay": "morning" }, "sleep": { "hours": 6.5, "quality": "fair" }, "meals": [{ "time": "9:30am", "description": "Small breakfast", "approxCalories": 180 }, { "time": "2:00pm", "description": "Half a bowl of rice and chicken", "approxCalories": 280 }, { "time": "7:00pm", "description": "Small dinner", "approxCalories": 320 }], "hunger": [{ "level": 3, "context": "afternoon" }], "activity": [], "freeTextNotes": "" },
+    { "date": "2026-07-17", "weight": { "value": 182.6, "unit": "lb", "date": "2026-07-17", "timeOfDay": "morning" }, "sleep": { "hours": 6.8, "quality": "fair" }, "meals": [{ "time": "9:00am", "description": "Toast", "approxCalories": 180 }, { "time": "1:30pm", "description": "Small sandwich", "approxCalories": 280 }, { "time": "7:00pm", "description": "Dinner, small portion", "approxCalories": 320 }], "hunger": [{ "level": 3, "context": "afternoon" }], "activity": [{ "type": "walk", "durationMinutes": 15, "intensity": "low" }], "freeTextNotes": "" },
+    { "date": "2026-07-18", "weight": { "value": 182.0, "unit": "lb", "date": "2026-07-18", "timeOfDay": "morning" }, "sleep": { "hours": 7.0, "quality": "fair" }, "meals": [{ "time": "9:00am", "description": "Small breakfast", "approxCalories": 200 }, { "time": "2:00pm", "description": "Soup and crackers", "approxCalories": 260 }, { "time": "7:00pm", "description": "Small dinner", "approxCalories": 300 }], "hunger": [{ "level": 3, "context": "midday" }], "activity": [], "freeTextNotes": "" },
+    { "date": "2026-07-19", "weight": { "value": 181.5, "unit": "lb", "date": "2026-07-19", "timeOfDay": "morning" }, "sleep": { "hours": 7.0, "quality": "fair" }, "meals": [{ "time": "9:30am", "description": "Toast and eggs", "approxCalories": 300 }, { "time": "2:00pm", "description": "Sandwich", "approxCalories": 400 }, { "time": "7:00pm", "description": "Dinner, small portion", "approxCalories": 350 }], "hunger": [{ "level": 3, "context": "afternoon" }], "activity": [{ "type": "walk", "durationMinutes": 20, "intensity": "low" }], "freeTextNotes": "Down 6.5 lb this week, not sure why the scale dropped so much. Didn't really change what I was doing." }
+  ],
+  "weeklyReflection": {
+    "weekStartDate": "2026-07-13",
+    "weekEndDate": "2026-07-19",
+    "reflectionText": "My weight dropped a lot faster than usual this week and I genuinely don't know why. I haven't been trying to eat less on purpose, I just haven't been that hungry. It's a big enough drop that it feels different from a normal good week.",
+    "selfReportedAdherence": "medium",
+    "selfReportedMood": "a little concerned",
+    "moodTags": ["confused", "slightly worried"]
+  },
+  "priorExperiment": null,
+  "medicationContext": null
+}

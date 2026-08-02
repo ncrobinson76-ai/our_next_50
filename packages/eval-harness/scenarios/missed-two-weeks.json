@@ -1,0 +1,39 @@
+{
+  "id": "missed-two-weeks",
+  "baseline": {
+    "userId": "eval-missed-two-weeks",
+    "startDate": "2026-03-15",
+    "startingWeight": { "value": 178.0, "unit": "lb", "date": "2026-03-15", "timeOfDay": "morning" },
+    "height": { "value": 65, "unit": "in" },
+    "age": 39,
+    "sex": "female",
+    "goal": {
+      "type": "weight-loss",
+      "description": "Gradual weight loss",
+      "targetWeight": { "value": 155, "unit": "lb" }
+    },
+    "activityBaseline": "Walks when schedule allows",
+    "dietaryPattern": "Historically consistent tracker until recently",
+    "notes": "Previously logged daily for 3 months straight before this gap."
+  },
+  "observations": [
+    { "date": "2026-07-06", "weight": { "value": 166.2, "unit": "lb", "date": "2026-07-06", "timeOfDay": "morning" }, "sleep": { "hours": 6.5, "quality": "fair" }, "meals": [{ "time": "1:00pm", "description": "Whatever I could grab, don't remember exactly", "approxCalories": 500 }], "hunger": [{ "level": 5, "context": "afternoon" }], "activity": [], "freeTextNotes": "Last day I logged before things got busy." },
+    { "date": "2026-07-19", "weight": { "value": 165.8, "unit": "lb", "date": "2026-07-19", "timeOfDay": "morning" }, "sleep": { "hours": 6.0, "quality": "fair" }, "meals": [], "hunger": [], "activity": [], "freeTextNotes": "First time logging in almost two weeks, just weighed in today." }
+  ],
+  "weeklyReflection": {
+    "weekStartDate": "2026-07-06",
+    "weekEndDate": "2026-07-19",
+    "reflectionText": "Hi, sorry it's been quiet. Work got really overwhelming the past couple weeks and I basically stopped logging entirely — no meals, no sleep, nothing. I did weigh myself today and it looks like I'm roughly in the same place as before, maybe down a little, but I honestly have no idea what happened in between.",
+    "selfReportedAdherence": "low",
+    "selfReportedMood": "overwhelmed, a little guilty about the gap",
+    "moodTags": ["overwhelmed", "disconnected", "apologetic"]
+  },
+  "priorExperiment": {
+    "description": "Add a 20-minute walk after dinner most nights",
+    "hypothesis": "An evening walk may support digestion and reduce evening snacking",
+    "startDate": "2026-07-06",
+    "status": "abandoned",
+    "outcomeNotes": "No data collected during the gap; unclear if it was followed at all."
+  },
+  "medicationContext": null
+}

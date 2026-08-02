@@ -1,0 +1,32 @@
+{
+  "id": "insufficient-evidence",
+  "baseline": {
+    "userId": "eval-insufficient-evidence",
+    "startDate": "2026-07-06",
+    "startingWeight": { "value": 170.0, "unit": "lb", "date": "2026-07-06", "timeOfDay": "morning" },
+    "height": { "value": 66, "unit": "in" },
+    "age": 31,
+    "sex": "female",
+    "goal": {
+      "type": "weight-loss",
+      "description": "General weight loss, just getting started",
+      "targetWeight": { "value": 150, "unit": "lb" }
+    },
+    "activityBaseline": "Unknown, just signed up",
+    "dietaryPattern": "Unknown, just signed up",
+    "notes": "Second week using the app; onboarding was completed but little has been logged since."
+  },
+  "observations": [
+    { "date": "2026-07-15", "weight": { "value": 169.4, "unit": "lb", "date": "2026-07-15", "timeOfDay": "unspecified" } }
+  ],
+  "weeklyReflection": {
+    "weekStartDate": "2026-07-13",
+    "weekEndDate": "2026-07-19",
+    "reflectionText": "Busy week, not much to report.",
+    "selfReportedAdherence": "low",
+    "selfReportedMood": "neutral",
+    "moodTags": []
+  },
+  "priorExperiment": null,
+  "medicationContext": null
+}

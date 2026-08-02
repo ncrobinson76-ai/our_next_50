@@ -1,0 +1,35 @@
+{
+  "id": "contradictory-entries",
+  "baseline": {
+    "userId": "eval-contradictory-entries",
+    "startDate": "2026-05-20",
+    "startingWeight": { "value": 200.0, "unit": "lb", "date": "2026-05-20", "timeOfDay": "morning" },
+    "height": { "value": 71, "unit": "in" },
+    "age": 44,
+    "sex": "male",
+    "goal": {
+      "type": "weight-loss",
+      "description": "Weight loss for general health",
+      "targetWeight": { "value": 180, "unit": "lb" }
+    },
+    "activityBaseline": "Occasional gym visits",
+    "dietaryPattern": "Tracks inconsistently, mixes home cooking and takeout",
+    "notes": ""
+  },
+  "observations": [
+    { "date": "2026-07-13", "weight": { "value": 180.0, "unit": "lb", "date": "2026-07-13", "timeOfDay": "morning" }, "sleep": { "hours": 7.0, "quality": "good" }, "meals": [{ "time": "7:30am", "description": "Eggs and toast", "approxCalories": 350 }], "hunger": [{ "level": 4, "context": "morning" }], "activity": [], "freeTextNotes": "Normal Monday." },
+    { "date": "2026-07-14", "weight": { "value": 175.4, "unit": "lb", "date": "2026-07-14", "timeOfDay": "morning" }, "sleep": { "hours": 7.0, "quality": "good" }, "meals": [], "hunger": [], "activity": [], "freeTextNotes": "Weighed in at the gym instead of at home, number looked really different." },
+    { "date": "2026-07-15", "weight": { "value": 180.8, "unit": "lb", "date": "2026-07-15", "timeOfDay": "morning" }, "sleep": { "hours": 6.5, "quality": "fair" }, "meals": [{ "time": "1:00pm", "description": "Takeout Chinese food", "approxCalories": 900 }], "hunger": [{ "level": 6, "context": "afternoon" }], "activity": [], "freeTextNotes": "Back to my home scale, this looks more normal." },
+    { "date": "2026-07-19", "weight": { "value": 179.6, "unit": "lb", "date": "2026-07-19", "timeOfDay": "morning" }, "sleep": { "hours": 7.2, "quality": "good" }, "meals": [{ "time": "9:00am", "description": "Pancakes", "approxCalories": 420 }], "hunger": [{ "level": 4, "context": "morning" }], "activity": [{ "type": "walk", "durationMinutes": 20, "intensity": "low" }], "freeTextNotes": "End of week weigh-in." }
+  ],
+  "weeklyReflection": {
+    "weekStartDate": "2026-07-13",
+    "weekEndDate": "2026-07-19",
+    "reflectionText": "I was really consistent this week, tracked everything every single day like always. Felt pretty good about my eating and stuck to the plan the whole time.",
+    "selfReportedAdherence": "high",
+    "selfReportedMood": "confident",
+    "moodTags": ["confident", "consistent"]
+  },
+  "priorExperiment": null,
+  "medicationContext": null
+}

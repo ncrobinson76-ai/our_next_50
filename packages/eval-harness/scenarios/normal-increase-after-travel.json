@@ -1,0 +1,38 @@
+{
+  "id": "normal-increase-after-travel",
+  "baseline": {
+    "userId": "eval-normal-increase-after-travel",
+    "startDate": "2026-04-01",
+    "startingWeight": { "value": 197.0, "unit": "lb", "date": "2026-04-01", "timeOfDay": "morning" },
+    "height": { "value": 68, "unit": "in" },
+    "age": 37,
+    "sex": "male",
+    "goal": {
+      "type": "weight-loss",
+      "description": "Lose weight before a fitness milestone event",
+      "targetWeight": { "value": 175, "unit": "lb" }
+    },
+    "activityBaseline": "Runs 3x/week",
+    "dietaryPattern": "Cooks most meals at home during a normal week",
+    "notes": "Traveled out of state for a wedding this week."
+  },
+  "observations": [
+    { "date": "2026-07-13", "weight": { "value": 168.0, "unit": "lb", "date": "2026-07-13", "timeOfDay": "morning" }, "sleep": { "hours": 7.0, "quality": "good" }, "meals": [{ "time": "7:30am", "description": "Oatmeal", "approxCalories": 320 }, { "time": "12:30pm", "description": "Grilled chicken salad", "approxCalories": 480 }, { "time": "6:30pm", "description": "Home-cooked stir-fry", "approxCalories": 550 }], "hunger": [{ "level": 4, "context": "afternoon" }], "activity": [{ "type": "run", "durationMinutes": 35, "intensity": "moderate" }], "freeTextNotes": "Normal day before the trip." },
+    { "date": "2026-07-14", "weight": { "value": 168.4, "unit": "lb", "date": "2026-07-14", "timeOfDay": "morning" }, "sleep": { "hours": 5.5, "quality": "poor" }, "meals": [{ "time": "6:00am", "description": "Airport breakfast sandwich", "approxCalories": 500 }, { "time": "1:00pm", "description": "Airplane snacks and a burger at the layover", "approxCalories": 800 }, { "time": "8:00pm", "description": "Hotel room service pasta", "approxCalories": 750 }], "hunger": [{ "level": 6, "context": "evening" }], "activity": [], "freeTextNotes": "Travel day, flights delayed, ate whatever was available." },
+    { "date": "2026-07-15", "weight": { "value": 169.2, "unit": "lb", "date": "2026-07-15", "timeOfDay": "morning" }, "sleep": { "hours": 6.0, "quality": "fair" }, "meals": [{ "time": "9:00am", "description": "Hotel breakfast buffet, eggs and bacon", "approxCalories": 700 }, { "time": "1:30pm", "description": "Rehearsal lunch, sandwiches", "approxCalories": 600 }, { "time": "7:30pm", "description": "Rehearsal dinner, steak and sides", "approxCalories": 900 }], "hunger": [{ "level": 5, "context": "throughout the day" }], "activity": [], "freeTextNotes": "Very salty restaurant food today." },
+    { "date": "2026-07-16", "weight": { "value": 169.8, "unit": "lb", "date": "2026-07-16", "timeOfDay": "morning" }, "sleep": { "hours": 5.0, "quality": "poor" }, "meals": [{ "time": "10:00am", "description": "Hotel breakfast", "approxCalories": 600 }, { "time": "2:00pm", "description": "Wedding reception appetizers and cake", "approxCalories": 900 }, { "time": "9:00pm", "description": "Wedding dinner, multiple courses, wine", "approxCalories": 1100 }], "hunger": [{ "level": 5, "context": "reception" }], "activity": [], "freeTextNotes": "Wedding day, danced a lot but ate and drank more than usual too." },
+    { "date": "2026-07-17", "weight": { "value": 170.1, "unit": "lb", "date": "2026-07-17", "timeOfDay": "morning" }, "sleep": { "hours": 6.0, "quality": "fair" }, "meals": [{ "time": "9:30am", "description": "Hotel breakfast", "approxCalories": 550 }, { "time": "1:00pm", "description": "Airport food before flight home", "approxCalories": 650 }, { "time": "7:00pm", "description": "Home-cooked dinner after landing", "approxCalories": 550 }], "hunger": [{ "level": 4, "context": "afternoon" }], "activity": [], "freeTextNotes": "Flew home, tired but glad to be back." },
+    { "date": "2026-07-18", "weight": { "value": 169.4, "unit": "lb", "date": "2026-07-18", "timeOfDay": "morning" }, "sleep": { "hours": 7.5, "quality": "good" }, "meals": [{ "time": "8:00am", "description": "Eggs and toast", "approxCalories": 350 }, { "time": "1:00pm", "description": "Grilled chicken salad", "approxCalories": 480 }, { "time": "6:30pm", "description": "Home-cooked salmon and vegetables", "approxCalories": 540 }], "hunger": [{ "level": 4, "context": "afternoon" }], "activity": [{ "type": "run", "durationMinutes": 30, "intensity": "moderate" }], "freeTextNotes": "Back to normal routine, scale already coming down." },
+    { "date": "2026-07-19", "weight": { "value": 168.9, "unit": "lb", "date": "2026-07-19", "timeOfDay": "morning" }, "sleep": { "hours": 8.0, "quality": "good" }, "meals": [{ "time": "8:30am", "description": "Oatmeal with fruit", "approxCalories": 320 }, { "time": "1:00pm", "description": "Turkey sandwich", "approxCalories": 460 }, { "time": "6:30pm", "description": "Home-cooked stir-fry", "approxCalories": 540 }], "hunger": [{ "level": 3, "context": "afternoon" }], "activity": [{ "type": "run", "durationMinutes": 40, "intensity": "moderate" }], "freeTextNotes": "Feeling back on track." }
+  ],
+  "weeklyReflection": {
+    "weekStartDate": "2026-07-13",
+    "weekEndDate": "2026-07-19",
+    "reflectionText": "I traveled for a wedding this week and the scale went up a couple pounds by the end, but I think it's mostly the salty restaurant food, less sleep, and not being able to run most days. I'm already seeing it start to come back down now that I'm home and back to my normal routine.",
+    "selfReportedAdherence": "medium",
+    "selfReportedMood": "relaxed about it",
+    "moodTags": ["aware", "unbothered", "back on track"]
+  },
+  "priorExperiment": null,
+  "medicationContext": null
+}

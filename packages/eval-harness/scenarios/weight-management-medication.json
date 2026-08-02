@@ -1,0 +1,48 @@
+{
+  "id": "weight-management-medication",
+  "baseline": {
+    "userId": "eval-weight-management-medication",
+    "startDate": "2026-06-01",
+    "startingWeight": { "value": 224.0, "unit": "lb", "date": "2026-06-01", "timeOfDay": "morning" },
+    "height": { "value": 69, "unit": "in" },
+    "age": 52,
+    "sex": "male",
+    "goal": {
+      "type": "weight-loss",
+      "description": "Weight management alongside prescribed medication",
+      "targetWeight": { "value": 195, "unit": "lb" }
+    },
+    "activityBaseline": "Mostly sedentary, occasional short walks",
+    "dietaryPattern": "Historically large portions, appetite has changed since starting medication",
+    "notes": "Started GLP-1 medication under physician supervision on 2026-06-01."
+  },
+  "observations": [
+    { "date": "2026-07-13", "weight": { "value": 211.2, "unit": "lb", "date": "2026-07-13", "timeOfDay": "morning" }, "sleep": { "hours": 7.0, "quality": "good" }, "meals": [{ "time": "8:00am", "description": "Half a bagel", "approxCalories": 180 }, { "time": "1:00pm", "description": "Small chicken salad, ate about half", "approxCalories": 300 }, { "time": "7:00pm", "description": "Small portion of grilled fish and vegetables", "approxCalories": 350 }], "hunger": [{ "level": 2, "context": "midday" }], "activity": [{ "type": "walk", "durationMinutes": 15, "intensity": "low" }], "freeTextNotes": "Barely hungry today, had to remind myself to eat lunch." },
+    { "date": "2026-07-14", "weight": { "value": 211.0, "unit": "lb", "date": "2026-07-14", "timeOfDay": "morning" }, "sleep": { "hours": 6.8, "quality": "fair" }, "meals": [{ "time": "9:00am", "description": "Yogurt", "approxCalories": 150 }, { "time": "2:00pm", "description": "Turkey sandwich, only ate half", "approxCalories": 280 }, { "time": "7:30pm", "description": "Soup and crackers", "approxCalories": 320 }], "hunger": [{ "level": 2, "context": "afternoon" }], "activity": [], "freeTextNotes": "Mild nausea in the morning, passed by midday." },
+    { "date": "2026-07-15", "weight": { "value": 210.6, "unit": "lb", "date": "2026-07-15", "timeOfDay": "morning" }, "sleep": { "hours": 7.2, "quality": "good" }, "meals": [{ "time": "9:30am", "description": "Skipped breakfast, not hungry", "approxCalories": 0 }, { "time": "1:30pm", "description": "Small portion pasta", "approxCalories": 350 }, { "time": "6:30pm", "description": "Grilled chicken, small portion", "approxCalories": 300 }], "hunger": [{ "level": 1, "context": "morning" }], "activity": [{ "type": "walk", "durationMinutes": 20, "intensity": "low" }], "freeTextNotes": "Forgot to eat lunch until 1:30, just wasn't hungry." },
+    { "date": "2026-07-16", "weight": { "value": 210.4, "unit": "lb", "date": "2026-07-16", "timeOfDay": "morning" }, "sleep": { "hours": 7.0, "quality": "good" }, "meals": [{ "time": "8:30am", "description": "Toast with butter", "approxCalories": 200 }, { "time": "1:00pm", "description": "Small chicken bowl", "approxCalories": 320 }, { "time": "7:00pm", "description": "Vegetable soup", "approxCalories": 280 }], "hunger": [{ "level": 2, "context": "midday" }], "activity": [], "freeTextNotes": "" },
+    { "date": "2026-07-17", "weight": { "value": 210.1, "unit": "lb", "date": "2026-07-17", "timeOfDay": "morning" }, "sleep": { "hours": 6.9, "quality": "fair" }, "meals": [{ "time": "9:00am", "description": "Half a smoothie", "approxCalories": 150 }, { "time": "2:00pm", "description": "Small salad with chicken", "approxCalories": 300 }, { "time": "7:00pm", "description": "Grilled salmon, small portion", "approxCalories": 320 }], "hunger": [{ "level": 2, "context": "afternoon" }], "activity": [{ "type": "walk", "durationMinutes": 20, "intensity": "low" }], "freeTextNotes": "Weekly medication dose day, mild fatigue in the evening." },
+    { "date": "2026-07-18", "weight": { "value": 209.9, "unit": "lb", "date": "2026-07-18", "timeOfDay": "morning" }, "sleep": { "hours": 7.5, "quality": "good" }, "meals": [{ "time": "9:30am", "description": "Eggs, small portion", "approxCalories": 220 }, { "time": "2:00pm", "description": "Small burger, no fries", "approxCalories": 400 }, { "time": "7:00pm", "description": "Small portion stir-fry", "approxCalories": 320 }], "hunger": [{ "level": 3, "context": "afternoon" }], "activity": [], "freeTextNotes": "Felt a bit more like eating today." },
+    { "date": "2026-07-19", "weight": { "value": 210.0, "unit": "lb", "date": "2026-07-19", "timeOfDay": "morning" }, "sleep": { "hours": 7.3, "quality": "good" }, "meals": [{ "time": "9:00am", "description": "Toast and fruit", "approxCalories": 250 }, { "time": "1:30pm", "description": "Small pasta portion", "approxCalories": 350 }, { "time": "6:30pm", "description": "Grilled chicken and vegetables", "approxCalories": 340 }], "hunger": [{ "level": 2, "context": "midday" }], "activity": [{ "type": "walk", "durationMinutes": 15, "intensity": "low" }], "freeTextNotes": "Steady week overall." }
+  ],
+  "weeklyReflection": {
+    "weekStartDate": "2026-07-13",
+    "weekEndDate": "2026-07-19",
+    "reflectionText": "Appetite has been really low most of the week, to the point where I have to remind myself to eat. A couple of mornings I felt a little nauseous but it passed. Weight keeps trending down. I know this is mostly the medication working, so I'm not sure how much credit to give myself versus just going with what my body is telling me right now.",
+    "selfReportedAdherence": "high",
+    "selfReportedMood": "steady, a little unsure how to think about progress",
+    "moodTags": ["steady", "uncertain about credit", "mild side effects"]
+  },
+  "priorExperiment": null,
+  "medicationContext": {
+    "medications": [
+      {
+        "name": "semaglutide",
+        "class": "GLP-1 receptor agonist",
+        "startDate": "2026-06-01",
+        "dosage": "0.5mg weekly injection",
+        "notes": "Prescribed by PCP for weight management; dose has not changed since starting."
+      }
+    ]
+  }
+}

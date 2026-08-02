@@ -1,0 +1,35 @@
+{
+  "id": "modest-progress-inconsistent-logging",
+  "baseline": {
+    "userId": "eval-modest-progress-inconsistent-logging",
+    "startDate": "2026-04-15",
+    "startingWeight": { "value": 201.5, "unit": "lb", "date": "2026-04-15", "timeOfDay": "morning" },
+    "height": { "value": 70, "unit": "in" },
+    "age": 35,
+    "sex": "male",
+    "goal": {
+      "type": "weight-loss",
+      "description": "Lose weight for an upcoming knee surgery consult",
+      "targetWeight": { "value": 185, "unit": "lb" }
+    },
+    "activityBaseline": "Sedentary desk job, occasional weekend hikes",
+    "dietaryPattern": "Eats out for lunch most workdays",
+    "notes": "Logging has been sporadic since starting, busy work schedule."
+  },
+  "observations": [
+    { "date": "2026-07-13", "weight": { "value": 194.8, "unit": "lb", "date": "2026-07-13", "timeOfDay": "morning" }, "sleep": { "hours": 6.5, "quality": "fair" }, "meals": [{ "time": "12:30pm", "description": "Chipotle bowl, chicken and rice", "approxCalories": 700 }], "hunger": [{ "level": 5, "context": "afternoon" }], "activity": [], "freeTextNotes": "Busy Monday, only tracked lunch." },
+    { "date": "2026-07-15", "weight": { "value": 194.5, "unit": "lb", "date": "2026-07-15", "timeOfDay": "morning" }, "sleep": { "hours": 6.0, "quality": "fair" }, "meals": [{ "time": "1:00pm", "description": "Turkey sandwich and chips", "approxCalories": 620 }], "hunger": [{ "level": 6, "context": "afternoon" }], "activity": [{ "type": "walk", "durationMinutes": 20, "intensity": "low" }], "freeTextNotes": "Forgot to log breakfast and dinner again." },
+    { "date": "2026-07-17", "weight": { "value": 194.2, "unit": "lb", "date": "2026-07-17", "timeOfDay": "morning" }, "sleep": { "hours": 7.0, "quality": "good" }, "meals": [{ "time": "7:00pm", "description": "Homemade pasta with chicken", "approxCalories": 680 }], "hunger": [{ "level": 4, "context": "evening" }], "activity": [], "freeTextNotes": "Only remembered to log dinner." },
+    { "date": "2026-07-19", "weight": { "value": 194.0, "unit": "lb", "date": "2026-07-19", "timeOfDay": "morning" }, "sleep": { "hours": 7.5, "quality": "good" }, "meals": [{ "time": "10:00am", "description": "Bagel with cream cheese", "approxCalories": 400 }, { "time": "2:00pm", "description": "Hike snacks: trail mix and a sandwich", "approxCalories": 650 }], "hunger": [{ "level": 5, "context": "midday" }], "activity": [{ "type": "hike", "durationMinutes": 90, "intensity": "moderate" }], "freeTextNotes": "Good weekend hike with a friend." }
+  ],
+  "weeklyReflection": {
+    "weekStartDate": "2026-07-13",
+    "weekEndDate": "2026-07-19",
+    "reflectionText": "Work was slammed this week and I only logged about half the days. From what I did track, weight seems to be trending down a little, but honestly I'm not sure how representative that is since I missed so much. I did get a good hike in on Saturday.",
+    "selfReportedAdherence": "medium",
+    "selfReportedMood": "okay, a little scattered",
+    "moodTags": ["busy", "distracted"]
+  },
+  "priorExperiment": null,
+  "medicationContext": null
+}

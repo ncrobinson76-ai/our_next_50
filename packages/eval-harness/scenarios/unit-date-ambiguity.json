@@ -1,0 +1,36 @@
+{
+  "id": "unit-date-ambiguity",
+  "baseline": {
+    "userId": "eval-unit-date-ambiguity",
+    "startDate": "2026-05-01",
+    "startingWeight": { "value": 79.4, "unit": "kg", "date": "2026-05-01", "timeOfDay": "morning" },
+    "height": { "value": 170, "unit": "cm" },
+    "age": 36,
+    "sex": "female",
+    "goal": {
+      "type": "weight-loss",
+      "description": "Weight loss, mostly used kg growing up but the app defaults to lb",
+      "targetWeight": { "value": 68, "unit": "kg" }
+    },
+    "activityBaseline": "Swims 1x/week",
+    "dietaryPattern": "Regular meals",
+    "notes": "User frequently mixes kg and lb between entries; also imports some old notes with ambiguous date formats."
+  },
+  "observations": [
+    { "date": "2026-07-13", "weight": { "value": 172.0, "unit": "lb", "date": "2026-07-13", "timeOfDay": "morning" }, "sleep": { "hours": 7.0, "quality": "good" }, "meals": [{ "time": "7:30am", "description": "Oatmeal", "approxCalories": 320 }], "hunger": [{ "level": 4, "context": "morning" }], "activity": [], "freeTextNotes": "Normal day, weighed in on my usual scale (lb)." },
+    { "date": "2026-07-14", "weight": { "value": 172.2, "unit": "lb", "date": "2026-07-14", "timeOfDay": "morning" }, "sleep": { "hours": 6.8, "quality": "fair" }, "meals": [{ "time": "8:00am", "description": "Toast and eggs", "approxCalories": 350 }], "hunger": [{ "level": 5, "context": "afternoon" }], "activity": [{ "type": "swim", "durationMinutes": 40, "intensity": "moderate" }], "freeTextNotes": "" },
+    { "date": "2026-07-15", "weight": { "value": 77.6, "unit": "kg", "date": "2026-07-15", "timeOfDay": "morning" }, "sleep": { "hours": 7.1, "quality": "good" }, "meals": [{ "time": "12:30pm", "description": "Chicken salad", "approxCalories": 480 }], "hunger": [{ "level": 4, "context": "midday" }], "activity": [], "freeTextNotes": "Weighed at my mom's house on her scale, it's in kg not lb like mine, forgot to convert." },
+    { "date": "2026-07-16", "weight": { "value": 171.8, "unit": "lb", "date": "2026-07-16", "timeOfDay": "morning" }, "sleep": { "hours": 7.3, "quality": "good" }, "meals": [{ "time": "7:45am", "description": "Yogurt and granola", "approxCalories": 310 }], "hunger": [{ "level": 4, "context": "morning" }], "activity": [], "freeTextNotes": "Back on my home scale (lb) today." },
+    { "date": "2026-07-19", "weight": { "value": 171.4, "unit": "lb", "date": "2026-07-19", "timeOfDay": "morning" }, "sleep": { "hours": 7.5, "quality": "good" }, "meals": [{ "time": "9:00am", "description": "Pancakes", "approxCalories": 400 }], "hunger": [{ "level": 4, "context": "morning" }], "activity": [{ "type": "swim", "durationMinutes": 40, "intensity": "moderate" }], "freeTextNotes": "I logged this as 03/04/26 in my old spreadsheet before switching apps, not sure if that meant March 4th or April 3rd, but the numbers above are from this week." }
+  ],
+  "weeklyReflection": {
+    "weekStartDate": "2026-07-13",
+    "weekEndDate": "2026-07-19",
+    "reflectionText": "Pretty normal week. I did weigh in on a different scale on Wednesday (my mom's, which is in kilograms, not pounds like mine) so that number might look off compared to the rest. Otherwise nothing unusual to report.",
+    "selfReportedAdherence": "high",
+    "selfReportedMood": "good",
+    "moodTags": ["steady"]
+  },
+  "priorExperiment": null,
+  "medicationContext": null
+}
