@@ -450,13 +450,16 @@ that it passes today.
   (so a slow LLM call doesn't hold a request open, and so processing can
   retry on failure) is future infrastructure this package deliberately
   doesn't build.
-- **Per-entry safety screening doesn't cover rapid weight change.** Only
-  `urgent_symptom`, `crisis_language`, and `disordered_eating` were ported
-  from `eval-harness/safetyCheck.ts` — rapid-weight-change is a trend
-  detector over multiple weeks' observations, not something that operates
-  on one entry's free text, so it doesn't fit this package's "single
-  InboxEvent" scope. Detecting it from a new observation against
-  historical data is a capability nothing has built yet.
+- **Per-entry safety screening (`packages/api/src/inbox/safetyScreen.ts`)
+  does not detect rapid weight change**, since that requires a trend
+  across multiple observations, not a single entry's text — it's
+  structurally out of scope for per-entry screening. Rapid-weight-change
+  detection currently only exists in `packages/eval-harness`'s
+  weekly-synthesis prototype (Package 0), which isn't wired into the live
+  app until Package 9. This means a dangerous single-week change could go
+  undetected by the live app for up to a week. Accepted as a known Phase 1
+  gap, not blocking — flagged here so it isn't forgotten before a safety
+  review.
 - **`GET /api/safety-events` doesn't exist.** `test/extraction.test.ts`
   confirms `SafetyEvent` rows directly via `db` rather than through a
   route, since this package wasn't asked to expose one.
