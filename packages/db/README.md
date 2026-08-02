@@ -78,7 +78,15 @@ retention policy should never delete the derived record built from it.
 
 **`users`** — one row per account: email, which auth provider vouches for
 it, locale, timezone, and which consent/ToS version they accepted and when.
-This is the root of the "delete cascades to a user's own data" chain.
+`consentVersion`/`consentAcceptedAt` are nullable — a row is created on
+first login, before consent is captured (see `packages/api`'s consent
+gate). This is the root of the "delete cascades to a user's own data" chain.
+
+**`sessions`** — not a PRD Section 12 entity. Infrastructure for
+`connect-pg-simple`, the Postgres-backed `express-session` store used by
+`packages/api`. Its shape (`sid`/`sess`/`expire`) is dictated entirely by
+that library, which manages the table's rows itself; app code never queries
+it directly.
 
 **`participant_profiles`** — baseline intake data (age/DOB, height,
 starting weight, optional waist, goals, personal reason, typical

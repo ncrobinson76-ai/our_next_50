@@ -15,6 +15,13 @@
       "when": 1785641549175,
       "tag": "0001_fresh_living_tribunal",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785642368244,
+      "tag": "0002_noisy_the_leader",
+      "breakpoints": true
     }
   ]
 }

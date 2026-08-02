@@ -1,5 +1,6 @@
 export * from "./enums";
 export * from "./users";
+export * from "./sessions";
 export * from "./participantProfiles";
 export * from "./inboxEvents";
 export * from "./sourceArtifacts";

@@ -18,9 +18,11 @@ export const users = pgTable(
 
     // Version string of the consent/ToS document the user accepted, plus
     // when — needed to know which policy version governed their data at
-    // any point in time.
-    consentVersion: text("consent_version").notNull(),
-    consentAcceptedAt: timestamp("consent_accepted_at", { withTimezone: true }).notNull(),
+    // any point in time. Nullable: a users row is created on first login,
+    // before consent has been captured (see packages/api's consent gate,
+    // ACC-03) — both fields are null until the user accepts.
+    consentVersion: text("consent_version"),
+    consentAcceptedAt: timestamp("consent_accepted_at", { withTimezone: true }),
 
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
