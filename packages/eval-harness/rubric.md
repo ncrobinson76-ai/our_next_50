@@ -86,3 +86,19 @@ stay within acceptable variance in content and never directly contradict
 each other (e.g. flip-flopping on whether adherence was high or low).
 
 **Fail:** Repeated runs materially disagree on the same underlying evidence.
+
+## Known limitations
+
+**Consistency caveat:** on scenarios where the evidence genuinely supports
+more than one reasonable next step (e.g. `apparent-plateau`, where both
+"measure portions more precisely" and "track a non-scale measurement" are
+defensible given the same data), repeated runs of the synthesis engine may
+produce different specific `proposedNextStep` content, not just different
+wording. This was confirmed by running `apparent-plateau` three times: two
+runs proposed precise calorie/portion measurement, one proposed non-scale
+body measurements. Both are well-reasoned and evidence-grounded
+individually — the divergence reflects real ambiguity in what the "right"
+next step is, not a defect in the prompt or model. This is expected behavior
+at the current sampling temperature and is not something to "fix" by chasing
+determinism; it's worth remembering so a future divergent run isn't mistaken
+for a regression.
