@@ -11,7 +11,7 @@ import {
 } from "./types";
 
 const DEFAULT_MODEL = "claude-sonnet-5";
-const MAX_TOKENS = 2048;
+const MAX_TOKENS = 4096;
 
 let cachedClient: Anthropic | null = null;
 
@@ -162,6 +162,12 @@ async function callSynthesisModel(packet: EvidencePacket): Promise<string> {
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: buildUserMessage(packet) }],
   });
+
+  if (response.stop_reason === "max_tokens") {
+    throw new Error(
+      `Response truncated at max_tokens (${MAX_TOKENS}). Raise MAX_TOKENS or shorten the prompt.`
+    );
+  }
 
   const textBlock = response.content.find((block) => block.type === "text");
   if (!textBlock || textBlock.type !== "text") {
